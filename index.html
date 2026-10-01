@@ -1,1 +1,230 @@
 
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Moderne Website</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f4f4f4;
+      color: #333;
+    }
+
+
+    header {
+      background-color: #2c3e50;
+      color: white;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    nav {
+      display: flex;
+      align-items: center;
+    }
+
+    nav a {
+      color: white;
+      text-decoration: none;
+      margin-left: 1.5rem;
+      font-size: 16px;
+    }
+
+    nav a:hover {
+      text-decoration: underline;
+    }
+
+    /* Dropdown CSS Start */
+    .dropdown {
+      position: relative;
+      display: inline-block;
+      margin-left: 1.5rem;
+      /* Gibt dem Container etwas unsichtbares "Fleisch", damit der Hover-Bereich größer ist */
+      padding-bottom: 10px; 
+    }
+
+    .dropbtn {
+      background-color: transparent;
+      color: white;
+      font-size: 16px;
+      border: none;
+      cursor: pointer;
+      font-family: 'Segoe UI', sans-serif;
+      padding: 0;
+      /* Verschiebt den Button leicht nach unten, um das padding-bottom auszugleichen */
+      margin-top: 10px; 
+    }
+
+    .dropdown:hover .dropbtn {
+      text-decoration: underline;
+    }
+
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      background-color: #ffffff;
+      min-width: 180px;
+      box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+      z-index: 1;
+      border-radius: 5px;
+      overflow: hidden;
+      top: 100%; /* HIER WAR DER FEHLER: 100% statt 150% schließt die Lücke nahtlos */
+      left: 0;
+    }
+
+    .dropdown-content a {
+      color: #333;
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+      margin-left: 0;
+      font-size: 15px;
+      transition: background-color 0.2s;
+    }
+
+    .dropdown-content a:hover {
+      background-color: #f1f1f1;
+      text-decoration: none;
+    }
+
+    .dropdown:hover .dropdown-content {
+      display: block;
+    }
+    /* Dropdown CSS Ende */
+
+    .hero {
+      background: linear-gradient(to right, #3498db, #8e44ad);
+      color: white;
+      padding: 4rem 2rem;
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .features {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 2rem;
+      gap: 2rem;
+    }
+
+    .feature {
+      background-color: white;
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      width: 300px;
+      text-align: center;
+    }
+
+    footer {
+      background-color: #2c3e50;
+      color: white;
+      text-align: center;
+      padding: 1rem;
+      margin-top: 2rem;
+    }
+
+    @media (max-width: 768px) {
+      header {
+        flex-direction: column;
+        gap: 1rem;
+      }
+      nav {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+      }
+      .dropdown, nav a {
+        margin-left: 0.5rem;
+        margin-right: 0.5rem;
+        padding-bottom: 0; /* Reset für Mobile */
+      }
+      .dropbtn {
+        margin-top: 0; /* Reset für Mobile */
+      }
+      .features {
+        flex-direction: column;
+        align-items: center;
+      }
+      .hero h1 {
+        font-size: 2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div><strong>MeineWebsite</strong></div>
+    <nav>
+      <a href="index.html">Start</a>
+
+      <div class="dropdown">
+        <button class="dropbtn">Grafik ▾</button>
+        <div class="dropdown-content">
+          <a href="https://lenticular.w3spaces.com/lenticulargif.html">Lenticular GIF</a>
+          <a href="https://lenticular.w3spaces.com/lenticularpitch.html">Lenticular Pitch</a>
+        </div>
+      </div>
+
+      <div class="dropdown">
+        <button class="dropbtn">Games ▾</button>
+        <div class="dropdown-content">
+          <a href="https://lenticular.w3spaces.com/sudoko.html">Sudoku</a>
+          <a href="https://lenticular.w3spaces.com/puzzle.html">Puzzle</a>
+          <a href="https://lenticular.w3spaces.com/Worte.html">Wortstufen</a>
+        </div>
+      </div>
+
+      <div class="dropdown">
+        <button class="dropbtn">Produktiv ▾</button>
+        <div class="dropdown-content">
+          <a href="https://lenticular.w3spaces.com/AnkerROI.html">Anker ROI</a>
+        </div>
+      </div>
+
+      <div class="dropdown">
+        <button class="dropbtn">Sport ▾</button>
+        <div class="dropdown-content">
+          <a href="https://lenticular.w3spaces.com/flyover.html">Flyover</a>
+          <a href="https://lenticular.w3spaces.com/spuren.html">Spuren</a>
+          <a href="https://lenticular.w3spaces.com/Run.html">Run</a>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>Willkommen auf meiner modernen Website</h1>
+    <p>Entdecke innovative Lösungen für dein digitales Leben.</p>
+  </section>
+
+  <section class="features">
+    <div class="feature">
+      <h2>Responsive Design</h2>
+      <p>Optimiert für alle Geräte – vom Smartphone bis zum Desktop.</p>
+    </div>
+    <div class="feature">
+      <h2>Schnelle Ladezeiten</h2>
+      <p>Unsere Seiten sind blitzschnell und effizient.</p>
+    </div>
+    <div class="feature">
+      <h2>Benutzerfreundlich und Datenkomform</h2>
+      <p>Intuitive Navigation und klare Inhalte für ein besseres Erlebnis. Es wird nichts gespeichert, alle Daten bleiben bei dir.</p>
+    </div>
+  </section>
+
+  <footer>
+    &copy; 2026 Alexander Rink. Alle Rechte vorbehalten.
+  </footer>
+</body>
+</html>
