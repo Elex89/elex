@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Block Gems</title>
+<style>
+  :root{
+    --bg:#0a0a0c;
+    --panel:#17171b;
+    --panel2:#1e1e23;
+    --accent:#ff5d8f;
+    --accent2:#ffb020;
+    --cell-empty:#1c1c21;
+    --cell-border:#2c2c33;
+    --text:#f2f2f4;
+    --muted:#8a8a92;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select:none;}
+  html,body{
+    margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    height:100%; overflow:hidden; overscroll-behavior:none;
+  }
+  body{
+    display:flex; flex-direction:column; align-items:center;
+    min-height:100dvh;
+    padding-top:calc(env(safe-area-inset-top) + 14px);
+    padding-bottom:calc(env(safe-area-inset-bottom) + 14px);
+    padding-left:env(safe-area-inset-left);
+    padding-right:env(safe-area-inset-right);
+    touch-action:none;
+  }
+  .topbar{
+    width:min(92vw,420px);
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:6px;
+  }
+  .best{
+    display:flex; align-items:center; gap:6px;
+    background:var(--panel); border-radius:999px; padding:8px 16px;
+    font-weight:700; font-size:17px; color:var(--accent2);
+  }
+  .best svg{width:18px; height:18px;}
+  .restart-btn{
+    background:var(--panel); color:var(--muted); border:none; border-radius:999px;
+    padding:8px 14px; font-size:14px; font-weight:600; font-family:inherit;
+  }
+  .help-btn{
+    background:var(--panel); color:var(--accent); border:none; border-radius:999px;
+    width:34px; height:34px; font-size:17px; font-weight:800; font-family:inherit;
+  }
+  .score{
+    font-size:52px; font-weight:800; letter-spacing:-1px; margin:6px 0 14px;
+    color:var(--text); font-variant-numeric: tabular-nums;
+    transition: transform .15s;
+  }
+  .score.bump{ transform:scale(1.15); color:var(--accent); }
+
+  .board{
+    display:grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+    gap:4px;
+    width:min(92vw,420px);
+    aspect-ratio:1/1;
+    background:var(--panel);
+    border-radius:18px;
+    padding:8px;
+    position:relative;
+  }
+  .cell{
+    border-radius:7px;
+    background:var(--cell-empty);
+    border:1px solid var(--cell-border);
+    position:relative;
+    transition: background .12s, transform .12s;
+  }
+  .cell.filled{
+    box-shadow: inset 0 -4px 6px rgba(0,0,0,.35), inset 0 2px 3px rgba(255,255,255,.35);
+    border-color: rgba(0,0,0,.2);
+  }
+  .cell.clearing{
+    transform: scale(0.35);
+    opacity:0;
+  }
+  .cell.highlight-valid{
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.55);
+  }
+  .cell.highlight-invalid{
+    background: rgba(255,60,70,.28) !important;
+    box-shadow:none;
+  }
+  .cell.highlight-glow{
+    animation: glowPulse .55s ease-in-out infinite alternate;
+    box-shadow: 0 0 12px 4px rgba(255,255,255,.85), inset 0 0 0 2px rgba(255,255,255,.9) !important;
+  }
+  @keyframes glowPulse{
+    from{ filter:brightness(1); }
+    to{ filter:brightness(1.5); }
+  }
+
+  .tray{
+    width:min(92vw,420px);
+    display:flex; justify-content:space-between; gap:8px;
+    margin-top:22px;
+  }
+  .piece-slot{
+    flex:1; min-height:92px; background:var(--panel);
+    border-radius:14px; display:flex; align-items:center; justify-content:center;
+    position:relative;
+  }
+  .piece-grid{
+    display:grid; gap:3px; touch-action:none;
+  }
+  .piece-cell{ border-radius:5px; }
+  .piece-slot.dragging-source .piece-grid{ opacity:.15; }
+
+  .ghost{
+    position:fixed; z-index:999; pointer-events:none;
+    display:grid; gap:4px; opacity:.95;
+  }
+  .ghost .piece-cell{ border-radius:7px; }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.72);
+    display:none; align-items:center; justify-content:center; z-index:1000;
+    padding: 0 20px;
+  }
+  .overlay.show{ display:flex; }
+  .overlay-card{
+    background:var(--panel); border-radius:20px; padding:28px 26px; text-align:center;
+    max-width:320px; width:100%;
+  }
+  .overlay-card h2{ margin:0 0 6px; font-size:24px; }
+  .overlay-card p{ margin:0 0 20px; color:var(--muted); font-size:15px; }
+  .overlay-card .final-score{ font-size:40px; font-weight:800; color:var(--accent); margin-bottom:18px; }
+  .overlay-card button{
+    background:var(--accent); color:#fff; border:none; border-radius:14px;
+    padding:14px 0; width:100%; font-size:17px; font-weight:700; font-family:inherit;
+  }
+  .hint{ color:var(--muted); font-size:13px; margin-top:14px; text-align:center; }
+  .rules{ margin:0; padding-left:18px; text-align:left; color:var(--muted); font-size:14px; line-height:1.5; }
+  .rules li{ margin-bottom:6px; }
+  .overlay-card{ max-height:82vh; overflow-y:auto; }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="best">
+      <svg viewBox="0 0 24 24" fill="var(--accent2)"><path d="M5 4h14l-1.5 6.5L12 15 6.5 10.5 5 4z"/><path d="M4 4h16v2H4z"/><path d="M9 17h6v2H9z"/><path d="M8 19h8v1.5H8z"/></svg>
+      <span id="bestScore">0</span>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button class="help-btn" id="helpBtn" aria-label="Anleitung">?</button>
+      <button class="restart-btn" id="restartTop">Neustart</button>
+    </div>
+  </div>
+
+  <div class="score" id="scoreDisplay">0</div>
+
+  <div class="board" id="board"></div>
+
+  <div class="tray" id="tray"></div>
+
+  <div class="hint">Ziehe eine Form aufs Feld. 3 gleiche Farben in einer Reihe oder eine volle Zeile/Spalte werden entfernt.</div>
+
+  <div class="overlay show" id="instructionsOverlay">
+    <div class="overlay-card">
+      <h2>Block Gems</h2>
+      <p style="margin-bottom:14px;">So funktioniert's:</p>
+      <ul class="rules">
+        <li>Ziehe eine der drei Formen unten mitten aufs Spielfeld.</li>
+        <li>Wird eine Zeile oder Spalte komplett voll, verschwindet sie.</li>
+        <li>3 oder mehr gleichfarbige Steine, die zusammenhängen (auch um die Ecke), lösen sich ebenfalls auf.</li>
+        <li>Leuchtet eine Zeile/Spalte beim Ziehen auf, wird sie durch deinen Zug komplett voll – ein guter Treffer!</li>
+      </ul>
+      <p style="margin:16px 0 6px; font-weight:700; color:var(--text);">Punkte</p>
+      <ul class="rules">
+        <li>+2 Punkte pro platziertem Stein</li>
+        <li>+10 Punkte pro aufgelöstem Stein (Zeile/Spalte oder Farbgruppe)</li>
+      </ul>
+      <button id="startBtn" style="margin-top:20px;">Los geht's!</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="gameOverOverlay">
+    <div class="overlay-card">
+      <h2>Spiel vorbei</h2>
+      <p>Keine Form passt mehr aufs Feld.</p>
+      <div class="final-score" id="finalScore">0</div>
+      <button id="restartBottom">Nochmal spielen</button>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const SIZE = 8;
+  const COLORS = [
+    {b:'#ff4d5e', l:'#ff8b96'},
+    {b:'#ff9f43', l:'#ffc98a'},
+    {b:'#ffd93d', l:'#ffe98a'},
+    {b:'#4ade80', l:'#94f2c0'},
+    {b:'#38bdf8', l:'#94ddfc'},
+    {b:'#a78bfa', l:'#cdb9ff'},
+    {b:'#f472b6', l:'#ffb0d9'}
+  ];
+
+  const SHAPES = [
+    [[0,0]],
+    [[0,0],[0,1]],
+    [[0,0],[1,0]],
+    [[0,0],[0,1],[0,2]],
+    [[0,0],[1,0],[2,0]],
+    [[0,0],[0,1],[0,2],[0,3]],
+    [[0,0],[1,0],[2,0],[3,0]],
+    [[0,0],[0,1],[0,2],[0,3],[0,4]],
+    [[0,0],[1,0],[2,0],[3,0],[4,0]],
+    [[0,0],[0,1],[1,0],[1,1]],
+    [[0,0],[0,1],[0,2],[1,0]],
+    [[0,0],[0,1],[0,2],[1,2]],
+    [[1,0],[1,1],[1,2],[0,0]],
+    [[1,0],[1,1],[1,2],[0,2]],
+    [[0,0],[1,0],[1,1],[2,1]],
+    [[0,1],[1,0],[1,1],[2,0]],
+    [[0,0],[0,1],[0,2],[1,1]],
+    [[0,1],[1,0],[1,1],[1,2]],
+    [[0,0],[0,1],[1,0],[1,1],[2,0],[2,1]],
+    [[0,0],[0,1],[1,0]],
+    [[0,0],[0,1],[1,1]],
+    [[1,0],[0,0],[0,1]],
+    [[0,0],[1,0],[1,1]],
+    [[0,0],[0,1],[0,2],[1,0],[2,0]],
+    [[0,0],[0,1],[0,2],[1,2],[2,2]],
+    [[0,1],[1,0],[1,1],[1,2],[2,1]]
+  ];
+
+  const boardEl = document.getElementById('board');
+  const trayEl = document.getElementById('tray');
+  const scoreDisplay = document.getElementById('scoreDisplay');
+  const bestScoreEl = document.getElementById('bestScore');
+  const gameOverOverlay = document.getElementById('gameOverOverlay');
+  const finalScoreEl = document.getElementById('finalScore');
+
+  let board = []; // {color} or null
+  let score = 0;
+  let best = parseInt(localStorage.getItem('blockGemsBest') || '0', 10);
+  let trayPieces = [null, null, null];
+  let cellEls = [];
+  let dragState = null;
+  let ghostEl = null;
+  const LIFT = 90;
+
+  bestScoreEl.textContent = best;
+
+  function newBoard(){
+    board = [];
+    for(let r=0;r<SIZE;r++){
+      const row = [];
+      for(let c=0;c<SIZE;c++) row.push(null);
+      board.push(row);
+    }
+  }
+
+  function buildBoardDOM(){
+    boardEl.innerHTML = '';
+    cellEls = [];
+    for(let r=0;r<SIZE;r++){
+      const rowEls = [];
+      for(let c=0;c<SIZE;c++){
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.dataset.r = r; cell.dataset.c = c;
+        boardEl.appendChild(cell);
+        rowEls.push(cell);
+      }
+      cellEls.push(rowEls);
+    }
+  }
+
+  function renderBoard(){
+    for(let r=0;r<SIZE;r++){
+      for(let c=0;c<SIZE;c++){
+        const cell = cellEls[r][c];
+        const val = board[r][c];
+        cell.classList.remove('highlight-valid','highlight-invalid');
+        if(val){
+          cell.classList.add('filled');
+          cell.style.background = `linear-gradient(135deg, ${val.l}, ${val.b})`;
+        } else {
+          cell.classList.remove('filled');
+          cell.style.background = '';
+        }
+      }
+    }
+  }
+
+  function normalizeShape(shape){
+    const minR = Math.min(...shape.map(p=>p[0]));
+    const minC = Math.min(...shape.map(p=>p[1]));
+    return shape.map(([r,c])=>[r-minR, c-minC]);
+  }
+
+  function shapeDims(shape){
+    const h = Math.max(...shape.map(p=>p[0])) + 1;
+    const w = Math.max(...shape.map(p=>p[1])) + 1;
+    return {h, w};
+  }
+
+  function genPiece(){
+    const raw = SHAPES[Math.floor(Math.random()*SHAPES.length)];
+    const shape = normalizeShape(raw);
+    const colors = shape.map(()=> COLORS[Math.floor(Math.random()*COLORS.length)]);
+    return { shape, colors };
+  }
+
+  function refillTrayIfNeeded(){
+    if(trayPieces.every(p=>p===null)){
+      trayPieces = [genPiece(), genPiece(), genPiece()];
+    }
+    renderTray();
+    checkGameOver();
+  }
+
+  function renderTray(){
+    trayEl.innerHTML = '';
+    trayPieces.forEach((piece, idx)=>{
+      const slot = document.createElement('div');
+      slot.className = 'piece-slot';
+      slot.dataset.idx = idx;
+      if(piece){
+        const {h, w} = shapeDims(piece.shape);
+        const grid = document.createElement('div');
+        grid.className = 'piece-grid';
+        const cellPx = Math.min(24, 84/Math.max(h,w));
+        grid.style.gridTemplateColumns = `repeat(${w}, ${cellPx}px)`;
+        grid.style.gridTemplateRows = `repeat(${h}, ${cellPx}px)`;
+        for(let r=0;r<h;r++){
+          for(let c=0;c<w;c++){
+            const idxInShape = piece.shape.findIndex(p=>p[0]===r && p[1]===c);
+            const div = document.createElement('div');
+            if(idxInShape >= 0){
+              div.className = 'piece-cell';
+              const col = piece.colors[idxInShape];
+              div.style.background = `linear-gradient(135deg, ${col.l}, ${col.b})`;
+              div.style.boxShadow = 'inset 0 -2px 4px rgba(0,0,0,.35), inset 0 2px 2px rgba(255,255,255,.35)';
+            }
+            grid.appendChild(div);
+          }
+        }
+        grid.style.width = (w*cellPx + (w-1)*3) + 'px';
+        grid.style.height = (h*cellPx + (h-1)*3) + 'px';
+        slot.appendChild(grid);
+        slot.addEventListener('pointerdown', (e)=> onPointerDown(e, idx));
+      }
+      trayEl.appendChild(slot);
+    });
+  }
+
+  function getBoardCellPx(){
+    const rect = boardEl.getBoundingClientRect();
+    return rect.width / SIZE;
+  }
+
+  function createGhost(piece, x, y){
+    const {h, w} = shapeDims(piece.shape);
+    const CELL = getBoardCellPx();
+    ghostEl = document.createElement('div');
+    ghostEl.className = 'ghost';
+    ghostEl.style.gridTemplateColumns = `repeat(${w}, ${CELL-4}px)`;
+    ghostEl.style.gridTemplateRows = `repeat(${h}, ${CELL-4}px)`;
+    for(let r=0;r<h;r++){
+      for(let c=0;c<w;c++){
+        const idxInShape = piece.shape.findIndex(p=>p[0]===r && p[1]===c);
+        const div = document.createElement('div');
+        if(idxInShape >= 0){
+          div.className = 'piece-cell';
+          const col = piece.colors[idxInShape];
+          div.style.background = `linear-gradient(135deg, ${col.l}, ${col.b})`;
+          div.style.boxShadow = 'inset 0 -3px 5px rgba(0,0,0,.35), inset 0 2px 3px rgba(255,255,255,.35)';
+        }
+        ghostEl.appendChild(div);
+      }
+    }
+    document.body.appendChild(ghostEl);
+    positionGhost(x, y);
+  }
+
+  function positionGhost(x, y){
+    if(!ghostEl) return;
+    const rect = ghostEl.getBoundingClientRect();
+    ghostEl.style.left = (x - rect.width/2) + 'px';
+    ghostEl.style.top = (y - LIFT - rect.height/2) + 'px';
+  }
+
+  function clearHighlights(){
+    for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++)
+      cellEls[r][c].classList.remove('highlight-valid','highlight-invalid','highlight-glow');
+  }
+
+  function computeAnchor(piece, x, y){
+    const {h, w} = shapeDims(piece.shape);
+    const rect = boardEl.getBoundingClientRect();
+    const CELL = rect.width / SIZE;
+    const px = x - rect.left;
+    const py = (y - LIFT) - rect.top;
+    let anchorCol = Math.round(px/CELL - w/2);
+    let anchorRow = Math.round(py/CELL - h/2);
+    anchorCol = Math.max(0, Math.min(SIZE - w, anchorCol));
+    anchorRow = Math.max(0, Math.min(SIZE - h, anchorRow));
+    return {anchorRow, anchorCol};
+  }
+
+  function canPlace(piece, anchorRow, anchorCol){
+    return piece.shape.every(([dr,dc])=>{
+      const r = anchorRow+dr, c = anchorCol+dc;
+      return r>=0 && r<SIZE && c>=0 && c<SIZE && !board[r][c];
+    });
+  }
+
+  function computePotentialLines(piece, anchorRow, anchorCol){
+    const temp = board.map(row=>row.slice());
+    piece.shape.forEach(([dr,dc], i)=>{
+      temp[anchorRow+dr][anchorCol+dc] = piece.colors[i];
+    });
+    const lines = [];
+    for(let r=0;r<SIZE;r++){
+      if(temp[r].every(v=>v)) lines.push({type:'row', idx:r});
+    }
+    for(let c=0;c<SIZE;c++){
+      let full = true;
+      for(let r=0;r<SIZE;r++) if(!temp[r][c]){ full=false; break; }
+      if(full) lines.push({type:'col', idx:c});
+    }
+    return lines;
+  }
+
+  function showHighlight(piece, anchorRow, anchorCol){
+    clearHighlights();
+    const valid = canPlace(piece, anchorRow, anchorCol);
+    piece.shape.forEach(([dr,dc])=>{
+      const r = anchorRow+dr, c = anchorCol+dc;
+      if(r>=0 && r<SIZE && c>=0 && c<SIZE){
+        cellEls[r][c].classList.add(valid ? 'highlight-valid' : 'highlight-invalid');
+      }
+    });
+    if(valid){
+      const lines = computePotentialLines(piece, anchorRow, anchorCol);
+      lines.forEach(line=>{
+        if(line.type === 'row'){
+          for(let c=0;c<SIZE;c++) cellEls[line.idx][c].classList.add('highlight-glow');
+        } else {
+          for(let r=0;r<SIZE;r++) cellEls[r][line.idx].classList.add('highlight-glow');
+        }
+      });
+    }
+    return valid;
+  }
+
+  function onPointerDown(e, idx){
+    const piece = trayPieces[idx];
+    if(!piece) return;
+    e.preventDefault();
+    const slotEl = e.currentTarget;
+    slotEl.classList.add('dragging-source');
+    dragState = { idx, piece, slotEl };
+    createGhost(piece, e.clientX, e.clientY);
+    const {anchorRow, anchorCol} = computeAnchor(piece, e.clientX, e.clientY);
+    dragState.lastValid = showHighlight(piece, anchorRow, anchorCol);
+    dragState.lastAnchor = {anchorRow, anchorCol};
+    document.addEventListener('pointermove', onPointerMove, {passive:false});
+    document.addEventListener('pointerup', onPointerUp, {passive:false});
+  }
+
+  function onPointerMove(e){
+    if(!dragState) return;
+    e.preventDefault();
+    positionGhost(e.clientX, e.clientY);
+    const {anchorRow, anchorCol} = computeAnchor(dragState.piece, e.clientX, e.clientY);
+    dragState.lastValid = showHighlight(dragState.piece, anchorRow, anchorCol);
+    dragState.lastAnchor = {anchorRow, anchorCol};
+  }
+
+  function onPointerUp(e){
+    if(!dragState) return;
+    document.removeEventListener('pointermove', onPointerMove);
+    document.removeEventListener('pointerup', onPointerUp);
+    clearHighlights();
+    if(ghostEl){ ghostEl.remove(); ghostEl = null; }
+    dragState.slotEl.classList.remove('dragging-source');
+
+    const {piece, idx, lastValid, lastAnchor} = dragState;
+    dragState = null;
+
+    if(lastValid){
+      placePiece(piece, lastAnchor.anchorRow, lastAnchor.anchorCol);
+      trayPieces[idx] = null;
+      renderBoard();
+      addScore(piece.shape.length * 2);
+      setTimeout(()=>{
+        resolveClears(()=>{
+          refillTrayIfNeeded();
+        });
+      }, 60);
+    }
+  }
+
+  function placePiece(piece, anchorRow, anchorCol){
+    piece.shape.forEach(([dr,dc], i)=>{
+      board[anchorRow+dr][anchorCol+dc] = piece.colors[i];
+    });
+  }
+
+  function addScore(n){
+    score += n;
+    scoreDisplay.textContent = score;
+    scoreDisplay.classList.add('bump');
+    setTimeout(()=>scoreDisplay.classList.remove('bump'), 160);
+    if(score > best){
+      best = score;
+      bestScoreEl.textContent = best;
+      localStorage.setItem('blockGemsBest', String(best));
+    }
+  }
+
+  function sameColor(a,b){ return a && b && a.b === b.b; }
+
+  function findColorGroups(workingBoard){
+    const visited = Array.from({length:SIZE}, ()=> new Array(SIZE).fill(false));
+    const toClear = new Set();
+    for(let r=0;r<SIZE;r++){
+      for(let c=0;c<SIZE;c++){
+        if(visited[r][c] || !workingBoard[r][c]) continue;
+        const color = workingBoard[r][c];
+        const stack = [[r,c]];
+        visited[r][c] = true;
+        const group = [];
+        while(stack.length){
+          const [cr,cc] = stack.pop();
+          group.push([cr,cc]);
+          const neighbors = [[cr-1,cc],[cr+1,cc],[cr,cc-1],[cr,cc+1]];
+          for(const [nr,nc] of neighbors){
+            if(nr>=0 && nr<SIZE && nc>=0 && nc<SIZE && !visited[nr][nc] && sameColor(workingBoard[nr][nc], color)){
+              visited[nr][nc] = true;
+              stack.push([nr,nc]);
+            }
+          }
+        }
+        if(group.length >= 3){
+          group.forEach(([gr,gc])=> toClear.add(gr+','+gc));
+        }
+      }
+    }
+    return toClear;
+  }
+
+  function findClearSet(workingBoard){
+    const toClear = new Set();
+    // full rows
+    for(let r=0;r<SIZE;r++){
+      if(workingBoard[r].every(v=>v)){
+        for(let c=0;c<SIZE;c++) toClear.add(r+','+c);
+      }
+    }
+    // full cols
+    for(let c=0;c<SIZE;c++){
+      let full = true;
+      for(let r=0;r<SIZE;r++) if(!workingBoard[r][c]) { full=false; break; }
+      if(full){
+        for(let r=0;r<SIZE;r++) toClear.add(r+','+c);
+      }
+    }
+    // connected same-color groups of 3+ (orthogonally connected, incl. corners/bends)
+    findColorGroups(workingBoard).forEach(key=> toClear.add(key));
+    return toClear;
+  }
+
+  function resolveClears(done){
+    const working = board.map(row=>row.slice());
+    const clearSet = findClearSet(working);
+    if(clearSet.size === 0){ done(); return; }
+
+    clearSet.forEach(key=>{
+      const [r,c] = key.split(',').map(Number);
+      cellEls[r][c].classList.add('clearing');
+    });
+
+    const bonus = clearSet.size * 10;
+
+    setTimeout(()=>{
+      clearSet.forEach(key=>{
+        const [r,c] = key.split(',').map(Number);
+        board[r][c] = null;
+        cellEls[r][c].classList.remove('clearing');
+      });
+      renderBoard();
+      addScore(bonus);
+      resolveClears(done);
+    }, 220);
+  }
+
+  function checkGameOver(){
+    const active = trayPieces.filter(p=>p);
+    if(active.length === 0) return;
+    for(const piece of active){
+      const {h, w} = shapeDims(piece.shape);
+      for(let r=0;r<=SIZE-h;r++){
+        for(let c=0;c<=SIZE-w;c++){
+          if(canPlace(piece, r, c)) return;
+        }
+      }
+    }
+    finalScoreEl.textContent = score;
+    gameOverOverlay.classList.add('show');
+  }
+
+  function restartGame(){
+    gameOverOverlay.classList.remove('show');
+    newBoard();
+    renderBoard();
+    score = 0;
+    scoreDisplay.textContent = '0';
+    trayPieces = [null, null, null];
+    refillTrayIfNeeded();
+  }
+
+  document.getElementById('restartTop').addEventListener('click', restartGame);
+  document.getElementById('restartBottom').addEventListener('click', restartGame);
+
+  const instructionsOverlay = document.getElementById('instructionsOverlay');
+  const startBtn = document.getElementById('startBtn');
+  const helpBtn = document.getElementById('helpBtn');
+  let gameStarted = false;
+
+  startBtn.addEventListener('click', ()=>{
+    instructionsOverlay.classList.remove('show');
+    gameStarted = true;
+  });
+  helpBtn.addEventListener('click', ()=>{
+    startBtn.textContent = gameStarted ? 'Schließen' : "Los geht's!";
+    instructionsOverlay.classList.add('show');
+  });
+
+  // init
+  newBoard();
+  buildBoardDOM();
+  renderBoard();
+  refillTrayIfNeeded();
+})();
+</script>
+</body>
+</html>
