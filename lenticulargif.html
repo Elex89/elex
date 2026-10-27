@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lentikular Creator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #f4f6f8;
+      color: #333;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #1e88e5;
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+    nav a {
+      color: white;
+      margin: 0 10px;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    main {
+      max-width: 800px;
+      margin: 40px auto;
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+    h1 { margin: 0; font-size: 1.8rem; }
+    label {
+      font-weight: 600;
+      margin-top: 20px;
+      display: block;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      margin-bottom: 16px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+    button {
+      background: #1e88e5;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    button:hover { background: #1565c0; }
+    canvas {
+      display: block;
+      margin: 30px auto;
+      max-width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+    #gifPreview {
+      text-align: center;
+      margin-top: 30px;
+    }
+    #gifPreview img {
+      max-width: 100%;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    @media (max-width: 600px) {
+      main {
+        margin: 20px;
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="index.html">Start</a>
+      <a href="lenticulargif.html">Lentikular-Generator</a>
+      <a href="lenticularpitch.html">Pitch-Test</a>
+    </nav>
+    <h1>Lentikular Creator</h1>
+    <p>Erlebe Momente auf magische Art und Weise neu</p>
+    <p>© Alex Rink</p>
+  </header>
+
+  <main>
+    <label>Bilder hochladen (mind. 2):</label>
+    <input type="file" id="images" multiple accept="image/*" />
+
+    <label>LPI (Lines per Inch):</label>
+    <input type="number" id="lpi" value="50.5" step="0.01"/>
+
+    <label>Richtung:</label>
+    <select id="direction">
+      <option value="horizontal">Horizontal</option>
+      <option value="vertical">Vertikal</option>
+    </select>
+
+    <label>Breite (cm):</label>
+    <input type="number" id="width" value="10.05" step="0.01" />
+
+    <label>Höhe (cm):</label>
+    <input type="number" id="height" value="15.19" step="0.01" />
+
+    <button onclick="generateLenticular()">Bild generieren</button>
+    <button onclick="exportImage()">Exportieren als PNG</button>
+
+    <canvas id="canvas"></canvas>
+    <div id="gifPreview"></div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/gifshot@0.3.2/build/gifshot.min.js"></script>
+  <script>
+    let canvas = document.getElementById('canvas');
+    let ctx = canvas.getContext('2d');
+
+    function generateLenticular() {
+      const files = document.getElementById('images').files;
+      const lpi = parseFloat(document.getElementById('lpi').value);
+      const direction = document.getElementById('direction').value;
+      const widthCm = parseFloat(document.getElementById('width').value);
+      const heightCm = parseFloat(document.getElementById('height').value);
+
+      if (files.length < 2) {
+        alert("Bitte mindestens zwei Bilder hochladen.");
+        return;
+      }
+
+      const dpi = 303;
+      const widthPx = Math.round(widthCm / 2.54 * dpi) * 2;
+      const heightPx = Math.round(heightCm / 2.54 * dpi) * 2;
+      const stripeWidth = dpi / lpi;
+
+      canvas.width = widthPx;
+      canvas.height = heightPx;
+      ctx.imageSmoothingEnabled = false;
+
+      const imageBuffers = [];
+      let loaded = 0;
+
+      for (let f = 0; f < files.length; f++) {
+        const img = new Image();
+        img.onload = () => {
+          const buffer = document.createElement('canvas');
+          buffer.width = widthPx;
+          buffer.height = heightPx;
+          const bctx = buffer.getContext('2d');
+          bctx.imageSmoothingEnabled = false;
+          bctx.drawImage(img, 0, 0, widthPx, heightPx);
+          imageBuffers[f] = buffer;
+          loaded++;
+
+          if (loaded === files.length) {
+            // Lentikular-Berechnung pixelgenau
+            if (direction === "vertical") {
+              const stripeCount = Math.round(widthPx / stripeWidth);
+              let x = 0;
+              for (let n = 0; n < stripeCount; n++) {
+                const nextX = Math.round((n + 1) * widthPx / stripeCount);
+                const w = nextX - x;
+                const srcIndex = n % imageBuffers.length;
+                ctx.drawImage(imageBuffers[srcIndex], x, 0, w, heightPx, x, 0, w, heightPx);
+                x = nextX;
+              }
+            } else {
+              const stripeCount = Math.round(heightPx / stripeWidth);
+              let y = 0;
+              for (let n = 0; n < stripeCount; n++) {
+                const nextY = Math.round((n + 1) * heightPx / stripeCount);
+                const h = nextY - y;
+                const srcIndex = n % imageBuffers.length;
+                ctx.drawImage(imageBuffers[srcIndex], 0, y, widthPx, h, 0, y, widthPx, h);
+                y = nextY;
+              }
+            }
+
+            createGifPreview(files, widthPx, heightPx);
+          }
+        };
+        img.src = URL.createObjectURL(files[f]);
+      }
+    }
+
+    function exportImage() {
+      const halfCanvas = document.createElement('canvas');
+      halfCanvas.width = canvas.width / 2;
+      halfCanvas.height = canvas.height / 2;
+      const halfCtx = halfCanvas.getContext('2d');
+      halfCtx.imageSmoothingEnabled = false;
+      halfCtx.drawImage(canvas, 0, 0, halfCanvas.width, halfCanvas.height);
+
+      const link = document.createElement('a');
+      link.download = 'lenticular_by_Elex.png';
+      link.href = halfCanvas.toDataURL('image/png');
+      link.click();
+    }
+
+    function createGifPreview(files, width, height) {
+      const gifPreview = document.getElementById('gifPreview');
+      gifPreview.innerHTML = "<h3>GIF-Vorschau wird erstellt…</h3>";
+
+      const images = [];
+      let loaded = 0;
+
+      for (let i = 0; i < files.length; i++) {
+        const img = new Image();
+        img.onload = () => {
+          images[i] = img;
+          loaded++;
+          if (loaded === files.length) {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = width;
+            tempCanvas.height = height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.imageSmoothingEnabled = false;
+
+            const frames = [];
+            for (let i = 0; i < images.length; i++) {
+              tempCtx.clearRect(0, 0, width, height);
+              tempCtx.drawImage(images[i], 0, 0, width, height);
+              frames.push(tempCanvas.toDataURL('image/jpeg'));
+            }
+
+            gifshot.createGIF({
+              images: frames,
+              gifWidth: Math.round(width * 0.3),
+              gifHeight: Math.round(height * 0.3),
+              interval: 1.2,
+              frameDuration: 3,
+              loop: true
+            }, function(obj) {
+              if (!obj.error) {
+                const gif = document.createElement('img');
+                gif.src = obj.image;
+                gifPreview.innerHTML = "<h3>GIF-Vorschau:</h3>";
+                gifPreview.appendChild(gif);
+              } else {
+                gifPreview.innerHTML = "<p>Fehler beim Erstellen der GIF-Vorschau.</p>";
+              }
+            });
+          }
+        };
+        img.src = URL.createObjectURL(files[i]);
+      }
+    }
+  </script>
+</body>
+</html>
+

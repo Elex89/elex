@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  
+
+<title>Lenticular Pitch Test Generator</title>
+<style>
+  body {
+    font-family: "Inter", sans-serif;
+    background: #f3f4f6;
+    color: #111827;
+    margin: 0;
+    padding: 0;
+  }
+
+  header {
+    background: linear-gradient(90deg, #4f46e5, #6366f1);
+    color: white;
+    text-align: center;
+    padding: 1.5rem;
+    font-size: 1.8rem;
+    font-weight: 600;
+  }
+
+  .container {
+    max-width: 950px;
+    margin: 30px auto;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    padding: 25px 35px;
+  }
+
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+
+  label {
+    font-weight: 600;
+    display: flex;
+    flex-direction: column;
+    font-size: 0.95rem;
+    color: #374151;
+  }
+
+  input, select {
+    margin-top: 5px;
+    padding: 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.95rem;
+  }
+
+  button {
+    background: #4f46e5;
+    color: white;
+    border: none;
+    padding: 12px 18px;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: 0.2s ease;
+  }
+
+  button:hover {
+    background: #4338ca;
+  }
+
+  canvas {
+    display: block;
+    margin: 25px auto;
+    border: 1px solid #9ca3af;
+    background: white;
+  }
+
+  footer {
+    text-align: center;
+    margin-top: 30px;
+    color: #6b7280;
+    font-size: 0.85rem;
+  }
+
+</style>
+</head>
+<body>
+
+<nav>
+      <a href="index.html">Start</a>
+      <a href="lenticulargif.html">Lentikular-Generator</a>
+      <a href="lenticularpitch.html">Pitch-Test</a>
+    </nav>
+
+<header>Lenticular Pitch Test Generator</header>
+
+
+
+<div class="container">
+
+  <div class="controls">
+    <label>Gesamtbreite (mm)
+      <input type="number" id="totalWidth" value="100.5">
+    </label>
+    <label>Gesamthöhe (mm)
+      <input type="number" id="totalHeight" value="151.9">
+    </label>
+    <label>DPI
+      <input type="number" id="dpiInput" value="303">
+    </label>
+    <label>Ziel-LPI
+      <input type="number" id="lpiInput" step="0.01" value="50.5">
+    </label>
+    <label>Schrittweite
+      <input type="number" id="stepInput" step="0.01" value="0.1">
+    </label>
+    <label>Bereich ±
+      <input type="number" id="rangeInput" step="0.1" value="0.5">
+    </label>
+    <label>Ausrichtung
+      <select id="orientation">
+        <option value="horizontal">Horizontal</option>
+        <option value="vertical">Vertikal</option>
+      </select>
+    </label>
+  </div>
+
+  <div style="text-align:center;">
+    <button onclick="generateCanvas()">Test generieren</button>
+    <button onclick="downloadPNG()">PNG herunterladen</button>
+  </div>
+
+  <canvas id="pitchCanvas"></canvas>
+
+</div>
+
+<footer>© 2025 Lenticular Tools Prototype</footer>
+
+<script>
+function mmToPx(mm, dpi) {
+  return (mm / 25.4) * dpi;
+}
+
+function generateCanvas() {
+  const canvas = document.getElementById('pitchCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const totalWidthMM = parseFloat(document.getElementById('totalWidth').value);
+  const totalHeightMM = parseFloat(document.getElementById('totalHeight').value);
+  const dpi = parseFloat(document.getElementById('dpiInput').value);
+  const lpi = parseFloat(document.getElementById('lpiInput').value);
+  const step = parseFloat(document.getElementById('stepInput').value);
+  const range = parseFloat(document.getElementById('rangeInput').value);
+  const orientation = document.getElementById('orientation').value;
+
+  // Berechnungen
+  const totalWidth = mmToPx(totalWidthMM, dpi);
+  const totalHeight = mmToPx(totalHeightMM, dpi);
+
+  canvas.width = totalWidth;
+  canvas.height = totalHeight;
+
+  // Abstände
+  const outerMarginMM = 15;
+  const gapMM = 1;
+  const outerMargin = mmToPx(outerMarginMM, dpi);
+  const gap = mmToPx(gapMM, dpi);
+
+  // Farb-Reset
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, totalWidth, totalHeight);
+  ctx.strokeStyle = "#000";
+  ctx.fillStyle = "#000";
+  ctx.font = `${mmToPx(3, dpi)}px Arial`;
+  ctx.textBaseline = "middle";
+
+  const start = lpi - range;
+  const end = lpi + range;
+
+  // Anzahl Varianten
+  const variants = Math.floor((end - start) / step) + 1;
+
+  // Platzverteilung
+  let patternWidth, patternHeight;
+  if (orientation === "horizontal") {
+    patternWidth = totalWidth - 2 * outerMargin;
+    patternHeight = (totalHeight - 2 * outerMargin - (variants - 1) * gap) / variants;
+  } else {
+    patternHeight = totalHeight - 2 * outerMargin;
+    patternWidth = (totalWidth - 2 * outerMargin - (variants - 1) * gap) / variants;
+  }
+
+  for (let i = 0; i < variants; i++) {
+    const currentLPI = start + i * step;
+    const lineWidthPx = (25.4 / currentLPI) / 2 * (dpi / 25.4); // mm → px
+
+    ctx.save();
+    if (orientation === "horizontal") {
+      const y = outerMargin + i * (patternHeight + gap);
+      drawPattern(ctx, outerMargin, y, patternWidth, patternHeight, lineWidthPx, "horizontal");
+      ctx.fillText(currentLPI.toFixed(3), outerMargin / 2, y + patternHeight / 2);
+    } else {
+      const x = outerMargin + i * (patternWidth + gap);
+      drawPattern(ctx, x, outerMargin, patternWidth, patternHeight, lineWidthPx, "vertical");
+      ctx.save();
+      ctx.translate(x + patternWidth / 2, outerMargin / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText(currentLPI.toFixed(3), 0, 0);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+}
+
+function drawPattern(ctx, x, y, w, h, lineWidth, direction) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+
+  if (direction === "horizontal") {
+    for (let i = x; i < x + w; i += lineWidth * 2) {
+      ctx.fillRect(i, y, lineWidth, h);
+    }
+  } else {
+    for (let j = y; j < y + h; j += lineWidth * 2) {
+      ctx.fillRect(x, j, w, lineWidth);
+    }
+  }
+
+  ctx.restore();
+}
+
+function downloadPNG() {
+  const canvas = document.getElementById("pitchCanvas");
+  const link = document.createElement("a");
+  link.download = "pitch_test.png";
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+}
+</script>
+
+</body>
+</html>

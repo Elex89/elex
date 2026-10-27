@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Wortstufen</title>
+<style>
+  :root{
+    --bg:#121213;
+    --bg2:#1a1a1b;
+    --tile-empty:#121213;
+    --tile-border:#3a3a3c;
+    --tile-filled:#565758;
+    --green:#538d4e;
+    --yellow:#b59f3b;
+    --gray:#3a3a3c;
+    --key-bg:#818384;
+    --key-text:#fff;
+    --accent:#d4af37;
+    --accent2:#f2c94c;
+    --text:#f5f5f5;
+    --muted:#9a9a9c;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  .hidden{ display:none !important; }
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    overscroll-behavior:none;
+  }
+  #app{
+    height:100dvh; width:100vw; overflow:hidden;
+    display:flex; flex-direction:column;
+    padding-top:max(0px, env(safe-area-inset-top));
+    padding-bottom:max(0px, env(safe-area-inset-bottom));
+  }
+  .screen{ display:none; flex-direction:column; height:100%; width:100%; }
+  .screen.active{ display:flex; }
+
+  /* ---------- Start Screen ---------- */
+  #screen-start{
+    align-items:center; justify-content:center; text-align:center;
+    background:
+      radial-gradient(circle at 20% 15%, rgba(212,175,55,0.18), transparent 45%),
+      radial-gradient(circle at 85% 80%, rgba(83,141,78,0.18), transparent 45%),
+      var(--bg);
+    padding:24px;
+    position:relative;
+    overflow-y:auto;
+  }
+  .title-tiles{ display:flex; gap:8px; margin-bottom:22px; flex-wrap:wrap; justify-content:center; }
+  .title-tiles .t{
+    width:44px; height:44px; border-radius:6px;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:22px; letter-spacing:0;
+    box-shadow:0 3px 10px rgba(0,0,0,0.4);
+    animation:pop .5s ease backwards;
+  }
+  @keyframes pop{ from{ transform:scale(0.4); opacity:0;} to{transform:scale(1); opacity:1;} }
+  .subtitle{ color:var(--muted); font-size:15px; margin-bottom:28px; max-width:320px; line-height:1.5; }
+  .stats-row{ display:flex; gap:14px; margin-bottom:26px; }
+  .stat-card{
+    background:var(--bg2); border:1px solid var(--tile-border); border-radius:12px;
+    padding:12px 18px; min-width:110px;
+  }
+  .stat-card .num{ font-size:22px; font-weight:800; color:var(--accent2); }
+  .stat-card .lbl{ font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-top:2px; }
+  .btn{
+    border:none; border-radius:14px; padding:16px 28px; font-size:17px; font-weight:700;
+    cursor:pointer; width:260px; max-width:80vw; margin-bottom:12px;
+    transition:transform .1s ease;
+  }
+  .btn:active{ transform:scale(0.96); }
+  .btn-primary{ background:linear-gradient(135deg, var(--accent2), var(--accent)); color:#1a1a1b; }
+  .btn-secondary{ background:var(--bg2); color:var(--text); border:1px solid var(--tile-border); }
+  .btn-ghost{ background:transparent; color:var(--muted); border:1px solid var(--tile-border); font-weight:600; font-size:15px; padding:12px 24px;}
+  .levels-preview{ display:flex; gap:6px; margin-top:6px; margin-bottom:24px; }
+  .levels-preview .lv{
+    width:26px; height:26px; border-radius:6px; background:var(--bg2);
+    border:1px solid var(--tile-border); display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:700; color:var(--muted);
+  }
+  .levels-preview .lv.done{ background:var(--green); border-color:var(--green); color:#fff; }
+  .mode-row{ display:flex; gap:10px; margin-bottom:22px; }
+  .mode-card{
+    background:var(--bg2); border:2px solid var(--tile-border); border-radius:14px;
+    padding:14px 10px; width:140px; color:var(--text); text-align:center; cursor:pointer;
+  }
+  .mode-card.selected{ border-color:var(--accent2); box-shadow:0 0 0 1px var(--accent2) inset; }
+  .mode-card .mode-icon{ font-size:22px; margin-bottom:4px; }
+  .mode-card .mode-name{ font-weight:800; font-size:14px; margin-bottom:4px; }
+  .mode-card .mode-desc{ font-size:11px; color:var(--muted); line-height:1.3; }
+  .mixed-note{ font-size:12px; color:var(--muted); margin:6px 0 24px; max-width:280px; }
+
+  /* ---------- Game Screen ---------- */
+  #screen-game{ height:100%; }
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 14px; border-bottom:1px solid var(--tile-border);
+  }
+  .topbar .icon-btn{
+    background:none; border:none; color:var(--text); font-size:20px; padding:6px 10px; cursor:pointer;
+  }
+  .topbar .center-info{ text-align:center; flex:1; }
+  .topbar .stufe-lbl{ font-size:13px; font-weight:700; letter-spacing:.03em; }
+  .topbar .score-lbl{ font-size:11px; color:var(--muted); }
+
+  .board-wrap{ flex:1; display:flex; align-items:center; justify-content:center; padding:6px 8px; min-height:0; }
+  #grid{ display:flex; flex-direction:column; gap:6px; }
+  .row{ display:flex; gap:6px; justify-content:center; }
+  .tile{
+    width:42px; height:42px; border:2px solid var(--tile-border);
+    display:flex; align-items:center; justify-content:center;
+    font-size:20px; font-weight:800; border-radius:5px; background:var(--tile-empty);
+    text-transform:uppercase;
+  }
+  .tile.filled{ border-color:var(--tile-filled); animation:pulse .1s ease; }
+  .tile.flip{ animation:flip .5s ease forwards; }
+  @keyframes flip{
+    0%{ transform:rotateX(0deg); }
+    50%{ transform:rotateX(90deg); }
+    51%{ transform:rotateX(90deg); }
+    100%{ transform:rotateX(0deg); }
+  }
+  .tile.hint{ border-color:var(--accent2); box-shadow:0 0 0 1px var(--accent2) inset; }
+  .tile.correct{ background:var(--green); border-color:var(--green); color:#fff; }
+  .tile.present{ background:var(--yellow); border-color:var(--yellow); color:#fff; }
+  .tile.absent{ background:var(--gray); border-color:var(--gray); color:#fff; }
+
+  .message{ text-align:center; min-height:22px; font-size:13px; color:var(--accent2); font-weight:700; padding:2px 10px; }
+
+  .actions-row{ display:flex; justify-content:center; gap:10px; padding:4px 10px 6px; }
+  .hint-btn{
+    background:var(--bg2); border:1px solid var(--accent); color:var(--accent2);
+    border-radius:10px; padding:7px 14px; font-size:12px; font-weight:700; display:flex; align-items:center; gap:6px;
+  }
+  .hint-btn:disabled{ opacity:.35; }
+  .attempts-lbl{ font-size:12px; color:var(--muted); align-self:center; }
+  .hint-chips{ display:flex; gap:6px; justify-content:center; flex-wrap:wrap; padding:0 10px; min-height:0; }
+  .hint-chip{
+    background:var(--bg2); border:1px solid var(--accent2); color:var(--accent2);
+    border-radius:8px; padding:4px 9px; font-size:12px; font-weight:800;
+  }
+
+  #keyboard{
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+    display:flex; flex-direction:column; gap:6px; align-items:center;
+  }
+  .krow{ display:flex; gap:5px; width:100%; justify-content:center; }
+  .key{
+    background:var(--key-bg); color:var(--key-text); border:none; border-radius:5px;
+    height:46px; flex:1; max-width:34px; font-size:13px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .key.wide{ max-width:58px; font-size:11px; }
+  .key.correct{ background:var(--green); }
+  .key.present{ background:var(--yellow); }
+  .key.absent{ background:var(--gray); color:#6b6b6d; pointer-events:none; opacity:.55; }
+
+  /* ---------- Modals ---------- */
+  .modal{
+    position:fixed; inset:0; background:rgba(0,0,0,0.72); z-index:50;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .modal.hidden{ display:none; }
+  .modal-card{
+    background:var(--bg2); border:1px solid var(--tile-border); border-radius:16px;
+    padding:24px 22px; max-width:340px; width:100%; text-align:center;
+    max-height:85dvh; overflow-y:auto;
+  }
+  .modal-card h2{ margin:0 0 10px; font-size:20px; }
+  .modal-card p, .modal-card li{ font-size:14px; color:#dcdcdc; line-height:1.5; }
+  .modal-card ul{ text-align:left; padding-left:18px; margin:10px 0; }
+  .example-row{ display:flex; gap:5px; justify-content:center; margin:8px 0; }
+  .example-row .tile{ width:32px; height:32px; font-size:15px; }
+  .modal-card .help-line{ display:flex; align-items:center; gap:10px; margin:10px 0; text-align:left; }
+  .modal-card .help-line .tile{ width:30px; height:30px; font-size:14px; flex-shrink:0; }
+  .close-x{ position:absolute; top:14px; right:18px; background:none; border:none; color:var(--muted); font-size:22px; }
+
+  .big-emoji{ font-size:44px; margin-bottom:6px; }
+  .word-reveal{ font-size:22px; font-weight:800; letter-spacing:.06em; color:var(--accent2); margin:8px 0; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- START SCREEN -->
+  <div id="screen-start" class="screen active">
+    <div class="title-tiles">
+      <div class="t" style="background:var(--green); color:#fff; animation-delay:0s;">W</div>
+      <div class="t" style="background:var(--yellow); color:#fff; animation-delay:.05s;">O</div>
+      <div class="t" style="background:var(--gray); color:#fff; animation-delay:.1s;">R</div>
+      <div class="t" style="background:var(--green); color:#fff; animation-delay:.15s;">T</div>
+    </div>
+    <div style="font-size:26px; font-weight:800; margin-bottom:4px;">Wortstufen</div>
+    <div class="subtitle">Errate deutsche Wörter mit steigender Länge – von 3 bis 8 Buchstaben. Wähle deinen Spielmodus!</div>
+
+    <div class="mode-row" id="mode-row">
+      <button class="mode-card selected" id="mode-survival" data-mode="survival">
+        <div class="mode-icon">🔥</div>
+        <div class="mode-name">Survival</div>
+        <div class="mode-desc">Start bei 3 Buchstaben, jede Runde eine Stufe schwerer</div>
+      </button>
+      <button class="mode-card" id="mode-mixed" data-mode="mixed">
+        <div class="mode-icon">🎲</div>
+        <div class="mode-name">Gemischt</div>
+        <div class="mode-desc">Endloser Spielspaß, Buchstabenzahl jede Runde zufällig</div>
+      </button>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="num" id="stat-bestlevel">1</div>
+        <div class="lbl" id="stat-bestlevel-label">Beste Stufe</div>
+      </div>
+      <div class="stat-card">
+        <div class="num" id="stat-highscore">0</div>
+        <div class="lbl">Highscore</div>
+      </div>
+    </div>
+
+    <div class="levels-preview" id="levels-preview"></div>
+    <div class="mixed-note hidden" id="mixed-note">Im Modus „Gemischt" spielst du endlos weiter – jede Runde hat eine zufällige Wortlänge zwischen 3 und 8 Buchstaben.</div>
+
+    <button class="btn btn-primary" id="btn-start">Spiel starten</button>
+    <button class="btn btn-ghost" id="btn-help-start">❓ Anleitung</button>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="screen-game" class="screen">
+    <div class="topbar">
+      <button class="icon-btn" id="btn-back">✕</button>
+      <div class="center-info">
+        <div class="stufe-lbl" id="lbl-stufe">Stufe 1 · 3 Buchstaben</div>
+        <div class="score-lbl" id="lbl-score">Punkte: 0</div>
+      </div>
+      <button class="icon-btn" id="btn-help">❓</button>
+    </div>
+
+    <div class="board-wrap"><div id="grid"></div></div>
+
+    <div class="message" id="message"></div>
+    <div class="hint-chips" id="hint-chips"></div>
+
+    <div class="actions-row">
+      <button class="hint-btn" id="btn-hint">💡 Tipp <span id="hint-count"></span></button>
+      <div class="attempts-lbl" id="lbl-attempts"></div>
+    </div>
+
+    <div id="keyboard"></div>
+  </div>
+
+  <!-- HELP MODAL -->
+  <div class="modal hidden" id="modal-help">
+    <div class="modal-card" style="position:relative;">
+      <button class="close-x" id="close-help">×</button>
+      <h2>So funktioniert's</h2>
+      <p>Errate das gesuchte deutsche Wort. Nach jedem Versuch verrät die Farbe der Kacheln, wie nah du dran bist.</p>
+      <div class="help-line"><div class="tile correct">A</div><span>Richtiger Buchstabe an der richtigen Stelle.</span></div>
+      <div class="help-line"><div class="tile present">B</div><span>Buchstabe kommt im Wort vor, aber an anderer Stelle.</span></div>
+      <div class="help-line"><div class="tile absent">C</div><span>Buchstabe kommt im Wort nicht vor.</span></div>
+      <p>Wähle auf dem Startbildschirm zwischen <b>Survival</b> (Start bei 3 Buchstaben, jede Runde eine Stufe schwerer, bis Stufe 8 gemeistert ist) und <b>Gemischt</b> (endloses Spiel mit zufälliger Wortlänge pro Runde).</p>
+      <p>💡 Mit <b>Tipp</b> kannst du bis zu dreimal pro Runde einen richtigen Buchstaben an seiner Position aufdecken. Angezeigt werden nur Positionen, die du noch nicht selbst richtig erraten hast. Er erscheint als kleiner Hinweis über der Tastatur (z. B. „3. Buchstabe: R") – du musst ihn beim Tippen selbst mit eingeben. Jeder Tipp kostet Punkte!</p>
+      <p>Bereits als falsch erkannte Buchstaben werden auf der Tastatur grau und lassen sich nicht mehr antippen.</p>
+      <button class="btn btn-primary" id="close-help-2" style="margin-top:8px;">Verstanden</button>
+    </div>
+  </div>
+
+  <!-- ROUND END MODAL -->
+  <div class="modal hidden" id="modal-round">
+    <div class="modal-card">
+      <div class="big-emoji" id="round-emoji">🎉</div>
+      <h2 id="round-title">Richtig!</h2>
+      <div class="word-reveal" id="round-word"></div>
+      <p id="round-text"></p>
+      <button class="btn btn-primary" id="btn-next">Weiter</button>
+    </div>
+  </div>
+
+  <!-- GAME OVER MODAL -->
+  <div class="modal hidden" id="modal-over">
+    <div class="modal-card">
+      <div class="big-emoji">😔</div>
+      <h2>Spiel vorbei</h2>
+      <p>Das gesuchte Wort war:</p>
+      <div class="word-reveal" id="over-word"></div>
+      <p id="over-stats"></p>
+      <button class="btn btn-primary" id="btn-retry">Neues Spiel</button>
+      <button class="btn btn-secondary" id="btn-menu">Zum Menü</button>
+    </div>
+  </div>
+
+  <!-- WIN GAME MODAL -->
+  <div class="modal hidden" id="modal-win">
+    <div class="modal-card">
+      <div class="big-emoji">🏆</div>
+      <h2>Alle Stufen gemeistert!</h2>
+      <p id="win-text"></p>
+      <button class="btn btn-primary" id="btn-win-restart">Nochmal spielen</button>
+      <button class="btn btn-secondary" id="btn-win-menu">Zum Menü</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ============== WORTLISTEN ============== */
+const WORDS = {
+3: ["AAL","ARM","ART","BAD","BAR","BAU","BEI","BIN","BIS","DAS","DEM","DEN","DES","EIS","ELF","ERZ","FAN","FAX","FEE","GAS","GEN","GUT","HUT","ICH","IST","JOB","KAP","KUH","LOB","LOS","MAL","MIR","MUT","NAH","NEU","NIE","NUN","NUR","OFT","OHR","OMA","OPA","PIN","RAD","REH","ROH","ROT","SAH","SEE","SEI","TAG","TAT","TEE","TOP","TOR","TUN","UFO","UHR","UND","VAN","VOR","WAR","WEG","WEM","WEN","WER","WIE","WIR","ZOO","ZUG","ASS","BAT","GAB","KAM","LAG","LAS"],
+4: ["HAUS","AUTO","BAUM","BUCH","BALL","BANK","BART","BEET","BEIN","BERG","BETT","BIER","BOOT","BROT","BUSS","DACH","DAME","DECK","DING","DORF","DUFT","ECHO","EULE","FELD","FILM","FLUR","FLUG","FRAU","FUSS","GANS","GAST","GELD","GLAS","GRAD","GRAS","GURT","HAAR","HAND","HARZ","HAUT","HEER","HEFT","HELD","HERD","HERZ","HOLZ","HORN","HOSE","HUND","IDEE","IGEL","JAHR","KAMM","KANN","KARO","KEIL","KERN","KIND","KINO","KLUB","KNIE","KOCH","KOPF","KORB","KRAN","LACK","LAMM","LAND","LAUB","LAUF","LEIM","LIED","LIFT","LIST","LOCH","LOHN","LUFT","LUST","MAIS","MALZ","MARK","MAST","MEER","MEHL","MOOR","MOOS","MOND","MUND","NAME","NEID","NEST","NETZ","NORD","NOTE","NUSS","OBST","OFEN","OPER","PAAR","PARK","PASS","PECH","PFAD","PFAU","PILZ","PLAN","POOL","POST","PULT","PUNK","RAND","RANG","RAST","RAUB","RAUM","REIM","REIS","RIND","ROCK","ROHR","ROSE","RUHM","RUHE","SAAL","SACK","SAFT","SALZ","SAND","SATZ","SAUM","SEIL","SIEB","SOFA","SOHN","STAB","STAR","STEG","STIL","STOP","TANK","TEAM","TEIL","TIER","TIPP","TRAM","TUCH","TURM","UFER","VASE","WAND","WEIN","WELT","WERK","WIND","WOLF","WORT","ZAHL","ZAUN","ZEIT","ZELT","ZIEL","ZINK","ZOLL","MAUS","ZWEI"],
+5: ["HAFEN","FISCH","KATZE","KUGEL","KUNST","LEBEN","LICHT","NACHT","NAGEL","NEBEL","OPFER","PUPPE","RASEN","ROLLE","SCHAF","SEITE","STEIN","STUFE","SUPPE","TANTE","TISCH","TRAUM","VOGEL","WACHS","WUCHT","APFEL","BLUME","BODEN","BRAND","BRIEF","BRUST","DAUER","DRUCK","EIMER","ENGEL","FARBE","FEIER","FELGE","FLUSS","FRAGE","GABEL","GEIST","GLANZ","GLEIS","GRUND","HEBEL","HEFTE","HONIG","HÜGEL","JACKE","KABEL","KAMPF","KANTE","KARTE","KASSE","KETTE","KLANG","KLEID","KNOPF","KOHLE","KREIS","KRONE","LAGER","LAMPE","LANGE","LEDER","LEHRE","MAGEN","MAUER","MEISE","MOTOR","MUSIK","NADEL","NEBEN","OSTEN","PAPST","PFERD","PLATZ","PREIS","PUNKT","RAUCH","REGEL","REGEN","REISE","RUNDE","SORGE","SPASS","STADT","STOLZ","STURM","TASSE","TEICH","TREUE","VATER","WAGEN","WEISE","WIESE","WOLKE","ZWANG"],
+6: ["ARBEIT","BÄCKER","BANANE","BREMSE","BRILLE","BRUDER","BÜRGER","DECKEL","DOKTOR","DRACHE","ERFOLG","FAHRER","FEHLER","FREUND","FRUCHT","GARTEN","GEHALT","GEDULD","GEMÜSE","GEWALT","GRENZE","GRUPPE","HAMMER","HERBST","HIMMEL","KASTEN","KATZEN","KELLER","KIRCHE","KISSEN","KLASSE","KOFFER","KÖNIGE","LAMPEN","LÖFFEL","MENSCH","MINUTE","MUTTER","ORDNER","PAPIER","PARTEI","QUELLE","RÄTSEL","REGION","RITTER","SAISON","SATTEL","SCHERE","SCHNEE","SESSEL","SORTEN","STRAND","TÄNZER","TASCHE","TUNNEL","WAFFEL","WAGNIS","WANDEL","WASSER","WEIZEN","WINTER","WOLKEN","WUNDER","ZAHLEN","ZUCKER"],
+7: ["BAHNHOF","BEAMTER","DIAMANT","EINGANG","FAHRRAD","FENSTER","FLASCHE","FRIEDEN","GARDINE","GEBÄUDE","GEDANKE","GESICHT","GITARRE","HAUSTÜR","KANZLER","KAPITEL","KLINGEL","LATERNE","MÄRCHEN","MEDIZIN","MUSCHEL","NACHBAR","PFLANZE","POLIZEI","PROBLEM","SANDALE","SCHWEIN","SPIEGEL","SPRACHE","STIEFEL","STRASSE","TABLETT","TEPPICH","TOCHTER","TRAKTOR","TROMMEL","VERTRAG","WÄCHTER","WOHNUNG","ZWIEBEL","ANGRIFF","AUFGABE","AUSGANG","AUSSAGE","BEGRIFF","BERICHT","BESUCHE","BETRIEB","EINHEIT","ERFOLGE","GEBIRGE","GEFÜHLE","GESTALT","HÄNDLER","HEIMWEG","KOLLEGE","SCHÜLER","VERKEHR","WANDERN","ZEITUNG"],
+8: ["ARBEITER","BÄCKEREI","COMPUTER","ERGEBNIS","FAHRZEUG","FRÜHLING","GESCHENK","HAUSTIER","LEHRERIN","MASCHINE","MATRATZE","NACHBARN","NATIONAL","RECHTECK","RUCKSACK","SCHATTEN","APOTHEKE","AUTOBAHN","FUSSBALL","GEMEINDE","GITARREN","HANDTUCH","HOCHZEIT","KRAWATTE","LEHRPLAN","MEISTERN","MUSIKANT","POLIZIST","TEPPICHE","TIERARZT","VERSTAND","ZAHNARZT","LIEBLING","NACHTRAG"]
+};
+const MAX_LEVEL = 6; // Stufen 1..6 -> 3..8 Buchstaben
+
+/* ============== STATE ============== */
+const MAX_HINTS = 3;
+const LENGTH_MIN = 3, LENGTH_MAX = 8;
+let state = {
+  mode: "survival",
+  level: 1,
+  round: 1,
+  score: 0,
+  wordLength: 3,
+  target: "",
+  guesses: [],
+  currentGuess: "",
+  attemptsLeft: 0,
+  maxAttempts: 0,
+  hintsUsed: 0,
+  hintReveals: [],    // Liste von {pos, letter}, gilt für die ganze Runde
+  knownCorrect: new Set(), // Positionen, die der Spieler bereits selbst richtig erraten hat
+  keyboardStatus: {},
+  usedThisGame: new Set()
+};
+function randomLength(){ return LENGTH_MIN + Math.floor(Math.random()*(LENGTH_MAX-LENGTH_MIN+1)); }
+
+const KB_ROWS = [
+  ["Q","W","E","R","T","Z","U","I","O","P","Ü"],
+  ["A","S","D","F","G","H","J","K","L","Ö","Ä"],
+  ["ENTER","Y","X","C","V","B","N","M","⌫"]
+];
+
+/* ============== HELPERS ============== */
+function lengthForLevel(lv){ return lv + 2; } // level1->3 ... level6->8
+function attemptsForLength(len){ return len + 2; }
+function el(id){ return document.getElementById(id); }
+function show(id){ el(id).classList.remove("hidden"); }
+function hide(id){ el(id).classList.add("hidden"); }
+
+function loadStats(){
+  if(state.mode === "survival"){
+    const best = parseInt(localStorage.getItem("wortstufen_best_level")||"1");
+    const hs = parseInt(localStorage.getItem("wortstufen_highscore")||"0");
+    el("stat-bestlevel").textContent = best;
+    el("stat-bestlevel-label").textContent = "Beste Stufe";
+    el("stat-highscore").textContent = hs;
+    const wrap = el("levels-preview");
+    wrap.innerHTML = "";
+    for(let i=1;i<=MAX_LEVEL;i++){
+      const d = document.createElement("div");
+      d.className = "lv" + (i < best ? " done" : "");
+      d.textContent = lengthForLevel(i);
+      wrap.appendChild(d);
+    }
+    show("levels-preview");
+    hide("mixed-note");
+  } else {
+    const bestRound = parseInt(localStorage.getItem("wortstufen_mixed_best_round")||"1");
+    const hs = parseInt(localStorage.getItem("wortstufen_mixed_highscore")||"0");
+    el("stat-bestlevel").textContent = bestRound;
+    el("stat-bestlevel-label").textContent = "Beste Runde";
+    el("stat-highscore").textContent = hs;
+    hide("levels-preview");
+    show("mixed-note");
+  }
+}
+function saveStats(){
+  if(state.mode === "survival"){
+    const best = parseInt(localStorage.getItem("wortstufen_best_level")||"1");
+    if(state.level > best) localStorage.setItem("wortstufen_best_level", state.level);
+    const hs = parseInt(localStorage.getItem("wortstufen_highscore")||"0");
+    if(state.score > hs) localStorage.setItem("wortstufen_highscore", state.score);
+  } else {
+    const bestRound = parseInt(localStorage.getItem("wortstufen_mixed_best_round")||"1");
+    if(state.round > bestRound) localStorage.setItem("wortstufen_mixed_best_round", state.round);
+    const hs = parseInt(localStorage.getItem("wortstufen_mixed_highscore")||"0");
+    if(state.score > hs) localStorage.setItem("wortstufen_mixed_highscore", state.score);
+  }
+}
+document.querySelectorAll(".mode-card").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".mode-card").forEach(b=>b.classList.remove("selected"));
+    btn.classList.add("selected");
+    state.mode = btn.dataset.mode;
+    loadStats();
+  });
+});
+
+function pickWord(len){
+  const pool = WORDS[len];
+  const avail = pool.filter(w => !state.usedThisGame.has(w));
+  const list = avail.length ? avail : pool;
+  const w = list[Math.floor(Math.random()*list.length)];
+  state.usedThisGame.add(w);
+  return w;
+}
+
+/* ============== GAME FLOW ============== */
+function startNewGame(){
+  state.level = 1;
+  state.round = 1;
+  state.score = 0;
+  state.usedThisGame = new Set();
+  goToScreen("game");
+  startRound();
+}
+function startRound(){
+  state.wordLength = state.mode === "survival" ? lengthForLevel(state.level) : randomLength();
+  state.target = pickWord(state.wordLength);
+  state.maxAttempts = attemptsForLength(state.wordLength);
+  state.attemptsLeft = state.maxAttempts;
+  state.guesses = [];
+  state.currentGuess = "";
+  state.hintsUsed = 0;
+  state.hintReveals = [];
+  state.knownCorrect = new Set();
+  state.keyboardStatus = {};
+  el("lbl-stufe").textContent = state.mode === "survival"
+    ? `Stufe ${state.level} · ${state.wordLength} Buchstaben`
+    : `Runde ${state.round} · ${state.wordLength} Buchstaben`;
+  el("lbl-score").textContent = `Punkte: ${state.score}`;
+  el("message").textContent = "";
+  updateHintButton();
+  renderHintChips();
+  buildGrid();
+  buildKeyboard();
+  updateAttemptsLabel();
+}
+function updateHintButton(){
+  const remaining = MAX_HINTS - state.hintsUsed;
+  const revealedPositions = state.hintReveals.map(h=>h.pos);
+  const openPositions = [];
+  for(let c=0;c<state.wordLength;c++){
+    if(!state.knownCorrect.has(c) && !revealedPositions.includes(c)) openPositions.push(c);
+  }
+  el("hint-count").textContent = `(${remaining}/${MAX_HINTS})`;
+  el("btn-hint").disabled = remaining <= 0 || openPositions.length === 0;
+}
+function renderHintChips(){
+  const wrap = el("hint-chips");
+  wrap.innerHTML = "";
+  state.hintReveals.slice().sort((a,b)=>a.pos-b.pos).forEach(h=>{
+    const chip = document.createElement("div");
+    chip.className = "hint-chip";
+    chip.textContent = `${h.pos+1}. Buchstabe: ${h.letter}`;
+    wrap.appendChild(chip);
+  });
+}
+function goToScreen(name){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  el("screen-"+name).classList.add("active");
+  if(name === "start") loadStats();
+}
+function updateAttemptsLabel(){
+  el("lbl-attempts").textContent = `Versuche: ${state.maxAttempts - state.guesses.length}/${state.maxAttempts}`;
+}
+
+/* ============== GRID ============== */
+function buildGrid(){
+  const grid = el("grid");
+  grid.innerHTML = "";
+  for(let r=0;r<state.maxAttempts;r++){
+    const row = document.createElement("div");
+    row.className = "row";
+    row.id = "row-"+r;
+    for(let c=0;c<state.wordLength;c++){
+      const tile = document.createElement("div");
+      tile.className = "tile";
+      tile.id = `tile-${r}-${c}`;
+      row.appendChild(tile);
+    }
+    grid.appendChild(row);
+  }
+}
+function renderCurrentRow(){
+  const r = state.guesses.length;
+  for(let c=0;c<state.wordLength;c++){
+    const tile = el(`tile-${r}-${c}`);
+    if(!tile) continue;
+    const letter = state.currentGuess[c] || "";
+    tile.textContent = letter;
+    tile.classList.toggle("filled", !!letter);
+  }
+}
+
+/* ============== TASTATUR ============== */
+function buildKeyboard(){
+  const kb = el("keyboard");
+  kb.innerHTML = "";
+  KB_ROWS.forEach(rowKeys=>{
+    const row = document.createElement("div");
+    row.className = "krow";
+    rowKeys.forEach(k=>{
+      const btn = document.createElement("button");
+      btn.className = "key" + (k==="ENTER"||k==="⌫" ? " wide":"");
+      btn.textContent = k;
+      btn.id = "key-"+k;
+      btn.addEventListener("click", ()=>handleKeyInput(k));
+      row.appendChild(btn);
+    });
+    kb.appendChild(row);
+  });
+  updateKeyboardColors();
+}
+function updateKeyboardColors(){
+  document.querySelectorAll(".key").forEach(btn=>{
+    btn.classList.remove("correct","present","absent");
+  });
+  Object.keys(state.keyboardStatus).forEach(letter=>{
+    const btn = el("key-"+letter);
+    if(!btn) return;
+    btn.classList.add(state.keyboardStatus[letter]);
+  });
+}
+function handleKeyInput(k){
+  if(!el("modal-round").classList.contains("hidden")) return;
+  if(!el("modal-over").classList.contains("hidden")) return;
+  if(k === "ENTER"){ submitGuess(); return; }
+  if(k === "⌫"){
+    state.currentGuess = state.currentGuess.slice(0,-1);
+    renderCurrentRow();
+    return;
+  }
+  if(state.currentGuess.length < state.wordLength){
+    state.currentGuess += k;
+    renderCurrentRow();
+  }
+}
+document.addEventListener("keydown", (e)=>{
+  if(!el("screen-game").classList.contains("active")) return;
+  let k = e.key.toUpperCase();
+  if(k === "ENTER"){ handleKeyInput("ENTER"); return; }
+  if(k === "BACKSPACE"){ handleKeyInput("⌫"); return; }
+  if(/^[A-ZÄÖÜ]$/.test(k)){ handleKeyInput(k); }
+});
+
+function submitGuess(){
+  if(state.currentGuess.length < state.wordLength){
+    flashMessage("Nicht genug Buchstaben");
+    return;
+  }
+  const guess = state.currentGuess;
+  const result = evaluateGuess(guess, state.target);
+  const r = state.guesses.length;
+
+  for(let c=0;c<state.wordLength;c++){
+    const tile = el(`tile-${r}-${c}`);
+    tile.textContent = guess[c];
+    setTimeout(()=>{
+      tile.classList.add(result[c]);
+    }, c*150);
+    if(result[c] === "correct") state.knownCorrect.add(c);
+  }
+  // Tastatur-Status aktualisieren (correct > present > absent)
+  const rank = {absent:0, present:1, correct:2};
+  for(let c=0;c<state.wordLength;c++){
+    const letter = guess[c];
+    const st = result[c];
+    const prev = state.keyboardStatus[letter];
+    if(!prev || rank[st] > rank[prev]){
+      state.keyboardStatus[letter] = st;
+    }
+  }
+  setTimeout(updateKeyboardColors, state.wordLength*150);
+
+  state.guesses.push(guess);
+  state.currentGuess = "";
+  updateAttemptsLabel();
+  updateHintButton();
+
+  const won = guess === state.target;
+  setTimeout(()=>{
+    if(won){
+      roundWon();
+    } else if(state.guesses.length >= state.maxAttempts){
+      roundLost();
+    } else {
+      renderCurrentRow();
+    }
+  }, state.wordLength*150 + 350);
+}
+
+function evaluateGuess(guess, target){
+  const len = target.length;
+  const result = new Array(len).fill("absent");
+  const targetArr = target.split("");
+  const guessArr = guess.split("");
+  const used = new Array(len).fill(false);
+
+  for(let i=0;i<len;i++){
+    if(guessArr[i] === targetArr[i]){
+      result[i] = "correct";
+      used[i] = true;
+      targetArr[i] = null;
+    }
+  }
+  for(let i=0;i<len;i++){
+    if(result[i] === "correct") continue;
+    const idx = targetArr.indexOf(guessArr[i]);
+    if(idx !== -1){
+      result[i] = "present";
+      targetArr[idx] = null;
+    }
+  }
+  return result;
+}
+
+function flashMessage(text){
+  el("message").textContent = text;
+  setTimeout(()=>{ if(el("message").textContent === text) el("message").textContent = ""; }, 1500);
+}
+
+/* ============== HINT (bis zu 3 pro Runde) ============== */
+function useHint(){
+  if(state.hintsUsed >= MAX_HINTS) return;
+  const revealedPositions = state.hintReveals.map(h=>h.pos);
+  const positions = [];
+  for(let c=0;c<state.wordLength;c++){
+    if(!state.knownCorrect.has(c) && !revealedPositions.includes(c)) positions.push(c);
+  }
+  if(positions.length === 0) return;
+  const pos = positions[Math.floor(Math.random()*positions.length)];
+  state.hintReveals.push({ pos, letter: state.target[pos] });
+  state.hintsUsed++;
+  renderHintChips();
+  updateHintButton();
+  flashMessage("Tipp verwendet – kostet Punkte");
+}
+el("btn-hint").addEventListener("click", useHint);
+
+/* ============== ROUND END ============== */
+function roundWon(){
+  const attemptsUsed = state.guesses.length;
+  const hintPenalty = state.hintsUsed * 12;
+  let pts = state.wordLength*10 - (attemptsUsed-1)*2 - hintPenalty;
+  pts = Math.max(pts, state.wordLength*2);
+  state.score += pts;
+  el("lbl-score").textContent = `Punkte: ${state.score}`;
+
+  if(state.mode === "survival"){
+    if(state.level >= MAX_LEVEL){
+      saveStats();
+      el("win-text").textContent = `Du hast alle ${MAX_LEVEL} Stufen bis zu 8 Buchstaben gemeistert! Gesamtpunktzahl: ${state.score}.`;
+      show("modal-win");
+      return;
+    }
+    saveStats();
+    el("round-emoji").textContent = "🎉";
+    el("round-title").textContent = "Richtig!";
+    el("round-word").textContent = state.target;
+    el("round-text").textContent = `+${pts} Punkte · Weiter zu Stufe ${state.level+1} (${lengthForLevel(state.level+1)} Buchstaben)`;
+    el("btn-next").textContent = "Nächste Stufe";
+    el("btn-next").onclick = ()=>{
+      hide("modal-round");
+      state.level++;
+      startRound();
+    };
+    show("modal-round");
+  } else {
+    saveStats();
+    el("round-emoji").textContent = "🎉";
+    el("round-title").textContent = "Richtig!";
+    el("round-word").textContent = state.target;
+    el("round-text").textContent = `+${pts} Punkte · Runde ${state.round} geschafft. Weiter geht's mit einer zufälligen Länge!`;
+    el("btn-next").textContent = "Nächste Runde";
+    el("btn-next").onclick = ()=>{
+      hide("modal-round");
+      state.round++;
+      startRound();
+    };
+    show("modal-round");
+  }
+}
+function roundLost(){
+  saveStats();
+  el("over-word").textContent = state.target;
+  el("over-stats").textContent = state.mode === "survival"
+    ? `Du hast Stufe ${state.level} (${state.wordLength} Buchstaben) mit ${state.score} Punkten erreicht.`
+    : `Du hast Runde ${state.round} (${state.wordLength} Buchstaben) mit ${state.score} Punkten erreicht.`;
+  show("modal-over");
+}
+
+el("btn-retry").addEventListener("click", ()=>{
+  hide("modal-over");
+  startNewGame();
+});
+el("btn-menu").addEventListener("click", ()=>{
+  hide("modal-over");
+  goToScreen("start");
+});
+el("btn-win-restart").addEventListener("click", ()=>{
+  hide("modal-win");
+  startNewGame();
+});
+el("btn-win-menu").addEventListener("click", ()=>{
+  hide("modal-win");
+  goToScreen("start");
+});
+
+/* ============== NAV / MODALS ============== */
+el("btn-start").addEventListener("click", startNewGame);
+el("btn-back").addEventListener("click", ()=>{
+  saveStats();
+  goToScreen("start");
+});
+el("btn-help-start").addEventListener("click", ()=> show("modal-help"));
+el("btn-help").addEventListener("click", ()=> show("modal-help"));
+el("close-help").addEventListener("click", ()=> hide("modal-help"));
+el("close-help-2").addEventListener("click", ()=> hide("modal-help"));
+
+/* ============== INIT ============== */
+loadStats();
+</script>
+</body>
+</html>

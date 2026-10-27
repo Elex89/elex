@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ANKER SOLIX System Analytics</title>
+<script src="https://cdn.tailwindcss.com"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.400.0/dist/umd/lucide.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/prop-types@15.8.1/prop-types.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.12.7/umd/Recharts.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.24.0/babel.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap');
+body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+.custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+.dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; }
+input[type=range] { -webkit-appearance: none; background: transparent; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 18px; width: 18px; border-radius: 50%; background: #f97316; cursor: pointer; border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.1); margin-top: -6px; }
+input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: #e2e8f0; border-radius: 3px; }
+.dark input[type=range]::-webkit-slider-runnable-track { background: #334155; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.animate-in { animation: fadeIn 0.4s ease-out forwards; }
+.recharts-responsive-container { min-width: 0; min-height: 0; }
+.heatmap-cell:hover { opacity: 0.8; transform: scale(1.15); transition: all 0.1s; }
+.heatmap-cell { transition: all 0.1s; cursor: default; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useRef, useEffect, useCallback } = React;
+const { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, ComposedChart, Line, LineChart } = window.Recharts || {};
+
+const COLORS = ['#EA580C', '#0D9488', '#3B82F6', '#F43F5E', '#A855F7', '#EC4899', '#FBBF24', '#22C55E'];
+const MONTH_NAMES = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+const WINDOW_SIZE = 7;
+
+// Datum als DD.MM.YYYY formatieren (passend zum CSV-Format)
+const formatDateDE = (date) => {
+if (!date) return '-';
+const dd = String(date.getDate()).padStart(2, '0');
+const mm = String(date.getMonth() + 1).padStart(2, '0');
+return `${dd}.${mm}.${date.getFullYear()}`;
+};
+
+// --- Ikonen-Komponente ---
+const Icon = ({ name, size = 18, className = "" }) => {
+useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [name]);
+return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
+};
+
+const AnkerSolarLogo = ({ darkMode = false }) => (
+<div className="flex items-center select-none">
+<span className={`${darkMode ? 'text-blue-400' : 'text-blue-600'} font-black tracking-tighter flex items-center`} style={{ lineHeight: '1.2' }}>
+<span className="text-2xl md:text-3xl">ANKER</span>
+<span className="ml-1.5 text-2xl md:text-3xl italic">SOLIX</span>
+</span>
+</div>
+);
+
+// --- Stat-Karte ---
+const StatCard = ({ title, value, iconName, iconColor, trend, secondaryTitle, secondaryValue, highlight = false, darkMode = false, badge = null, footer = null }) => (
+<div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-5 rounded-2xl shadow-sm border ${highlight ? (darkMode ? 'border-l-4 border-l-orange-500' : 'border-l-4 border-l-orange-500') : ''} transition-all hover:shadow-md hover:-translate-y-0.5 flex flex-col`} style={{ minHeight: '150px' }}>
+<div className="flex items-start justify-between mb-3">
+<div className={`w-9 h-9 shrink-0 rounded-full flex items-center justify-center ${highlight ? (darkMode ? 'bg-orange-900/40 text-orange-400' : 'bg-orange-100 text-orange-600') : (darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-50 text-slate-600')}`}>
+<Icon name={iconName} size={16} className={iconColor} />
+</div>
+{badge && <span className={`text-[7px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full ${darkMode ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>{badge}</span>}
+</div>
+<div className="flex-1">
+<h3 className={`${darkMode ? 'text-slate-400' : 'text-slate-400'} text-[9px] font-bold uppercase tracking-wider mb-0.5`}>{String(title || "")}</h3>
+<p className={`text-lg font-black tracking-tight ${darkMode ? 'text-slate-100' : 'text-slate-800'}`} style={{ lineHeight: '1.1' }}>{String(value || "")}</p>
+</div>
+{secondaryTitle ? (
+<div className={`mt-2 pt-2 border-t leading-tight ${darkMode ? 'border-slate-700' : 'border-slate-50'}`}>
+<h4 className={`${darkMode ? 'text-slate-500' : 'text-slate-400'} text-[8px] font-bold uppercase tracking-wider mb-0.5`}>{String(secondaryTitle || "")}</h4>
+<p className={`text-sm font-bold ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>{String(secondaryValue || "")}</p>
+</div>
+) : trend ? (
+<div className={`mt-2 text-[8px] font-bold border-t pt-2 ${darkMode ? 'text-slate-500 border-slate-700' : 'text-slate-400 border-slate-50'}`}>{String(trend || "")}</div>
+) : null}
+{footer && (
+<div className={`mt-2 pt-2 border-t leading-tight ${darkMode ? 'border-slate-700' : 'border-slate-50'}`}>
+{footer}
+</div>
+)}
+</div>
+);
+
+// --- Kalender-Heatmap ---
+const CalendarHeatmap = ({ rawData, darkMode }) => {
+if (!rawData || rawData.length === 0) return null;
+const maxGen = Math.max(...rawData.map(d => d.gesamtErzeugung), 0.01);
+
+const months = {};
+rawData.forEach(d => {
+const key = `${d.year}-${String(d.month).padStart(2, '0')}`;
+if (!months[key]) months[key] = { year: d.year, month: d.month, days: {} };
+months[key].days[d.timestamp.getDate()] = d.gesamtErzeugung;
+});
+const sortedMonths = Object.values(months).sort((a, b) => a.year * 100 + a.month - (b.year * 100 + b.month));
+
+const getColor = (val) => {
+if (val == null || val === 0) return darkMode ? '#1e293b' : '#f1f5f9';
+const t = Math.min(val / maxGen, 1);
+if (t < 0.2) return '#ffedd5';
+if (t < 0.4) return '#fed7aa';
+if (t < 0.6) return '#fb923c';
+if (t < 0.8) return '#f97316';
+return '#ea580c';
+};
+
+return (
+<div className="overflow-x-auto custom-scrollbar pb-2">
+<div className="flex gap-6 min-w-max">
+{sortedMonths.map(md => {
+const firstDow = new Date(md.year, md.month - 1, 1).getDay();
+const startOffset = (firstDow + 6) % 7;
+const daysInMonth = new Date(md.year, md.month, 0).getDate();
+const cells = [...Array(startOffset).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
+return (
+<div key={`${md.year}-${md.month}`}>
+<p className={`text-[9px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>{MONTH_NAMES[md.month - 1]} {md.year}</p>
+<div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(7, 28px)' }}>
+{['Mo','Di','Mi','Do','Fr','Sa','So'].map(d => (
+<div key={d} className={`text-[7px] font-bold text-center ${darkMode ? 'text-slate-600' : 'text-slate-300'}`}>{d}</div>
+))}
+{cells.map((day, idx) => (
+<div key={idx} title={day ? `${String(day).padStart(2,'0')}.${String(md.month).padStart(2,'0')}.${md.year}: ${(md.days[day] || 0).toFixed(2)} kWh` : ''}
+className="heatmap-cell w-7 h-7 rounded-lg flex items-center justify-center relative group"
+style={{ backgroundColor: day ? getColor(md.days[day]) : 'transparent' }}>
+{day && <span className={`text-[8px] font-bold ${(md.days[day] || 0) > maxGen * 0.5 ? 'text-orange-900' : (darkMode ? 'text-slate-400' : 'text-slate-500')}`}>{day}</span>}
+</div>
+))}
+</div>
+</div>
+);
+})}
+</div>
+<div className="flex items-center gap-2 mt-4">
+<span className={`text-[9px] font-bold ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Niedrig</span>
+{['#ffedd5','#fed7aa','#fb923c','#f97316','#ea580c'].map(c => (
+<div key={c} className="w-5 h-3 rounded" style={{ backgroundColor: c }}></div>
+))}
+<span className={`text-[9px] font-bold ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Hoch ({maxGen.toFixed(1)} kWh)</span>
+</div>
+</div>
+);
+};
+
+// --- Energie-Sankey / Fluss-Darstellung (Balkengrafik) ---
+const CustomTooltip = ({ active, payload, label, darkMode, unit = 'kWh' }) => {
+if (!active || !payload || payload.length === 0) return null;
+return (
+<div className={`p-3 rounded-2xl shadow-xl text-xs ${darkMode ? 'bg-slate-800 text-slate-200 border border-slate-700' : 'bg-white text-slate-800 border border-slate-100'}`}>
+<p className="font-bold mb-2 border-b pb-1.5" style={{ borderColor: darkMode ? '#334155' : '#f1f5f9' }}>{label}</p>
+{payload.map((p, i) => (
+<div key={i} className="flex items-center gap-2 py-0.5">
+<div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }}></div>
+<span className={darkMode ? 'text-slate-400' : 'text-slate-500'}>{p.name}:</span>
+<span className="font-bold">{typeof p.value === 'number' ? p.value.toFixed(2) : p.value} {unit}</span>
+</div>
+))}
+</div>
+);
+};
+
+// --- Haupt-App ---
+const App = () => {
+const [rawData, setRawData] = useState(null);
+const [viewMode, setViewMode] = useState('day');
+const [scrollIndex, setScrollIndex] = useState(0);
+const [error, setError] = useState(null);
+const [fileName, setFileName] = useState("");
+const [isExporting, setIsExporting] = useState(false);
+const [showSettings, setShowSettings] = useState(false);
+const [isDragging, setIsDragging] = useState(false);
+const [darkMode, setDarkMode] = useState(false);
+const [activeTab, setActiveTab] = useState('overview'); // overview | storage | solar | co2 | table | heatmap
+const [energyPrice, setEnergyPrice] = useState(0.3688);
+const [systemCost, setSystemCost] = useState(1676);
+const [feedInTariff, setFeedInTariff] = useState(0.000);
+const fileInputRef = useRef(null);
+const dashboardRef = useRef(null);
+
+useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, []);
+useEffect(() => { document.documentElement.classList.toggle('dark', darkMode); }, [darkMode]);
+
+// CSV parsen
+const processFile = (file) => {
+if (!file) return;
+setFileName(file.name);
+const reader = new FileReader();
+reader.onload = (event) => {
+try {
+const text = event.target.result;
+const lines = text.split(/\r?\n/);
+let headerIndex = -1;
+for (let i = 0; i < lines.length; i++) {
+if (lines[i].includes("Datum") && lines[i].includes("Eigenverbrauch")) { headerIndex = i; break; }
+}
+if (headerIndex === -1) throw new Error("CSV-Format nicht erkannt. Bitte exportieren Sie die Energiedetails aus der Anker Solix App.");
+
+const parseCSVLine = (line) => {
+const result = []; let cur = '', inQuotes = false;
+for (let char of line) {
+if (char === '"') inQuotes = !inQuotes;
+else if (char === ',' && !inQuotes) { result.push(cur.trim()); cur = ''; }
+else cur += char;
+}
+result.push(cur.trim());
+return result;
+};
+
+const headers = parseCSVLine(lines[headerIndex]);
+// Spalten-Indizes ermitteln
+const idx = (fn) => headers.findIndex(fn);
+const pv1Idx = idx(h => /PV1.*Erzeugung/i.test(h));
+const pv2Idx = idx(h => /PV2.*Erzeugung/i.test(h));
+const pv3Idx = idx(h => /PV3.*Erzeugung/i.test(h));
+const pv4Idx = idx(h => /PV4.*Erzeugung/i.test(h));
+const einspeisungIdx = idx(h => /Einspeisung/i.test(h));
+const smartPlugIdx = idx(h => h.includes("Verbrauch über Smart Plug"));
+const co2Idx = idx(h => h.includes('CO') && h.includes('Reduktion'));
+const genutzteSolarIdx = idx(h => h.includes('Genutzte Solarenergie'));
+const solarZuHausIdx = idx(h => h.includes('Solarstrom zu Haushalt'));
+const solarZuSpeicherIdx = idx(h => h.includes('Solarstrom zu Speicher'));
+const netzZuHausIdx = idx(h => h.includes('Netzstrom zu Haushalt'));
+const netzZuSpeicherIdx = idx(h => h.includes('Netzstrom zu Speicher'));
+const speicherZuHausIdx = idx(h => h.includes('Speicher zu Haushalt'));
+const gesamteSolarIdx = idx(h => h.includes('Gesamte Solarstromerzeugung'));
+
+const parseNum = (val) => {
+if (val == null || val === '') return 0;
+const s = String(val).replace(',', '.');
+const n = parseFloat(s);
+return isNaN(n) ? 0 : n;
+};
+
+const resultRows = [];
+for (let i = headerIndex + 1; i < lines.length; i++) {
+const rawLine = lines[i].trim(); if (!rawLine) continue;
+const cols = parseCSVLine(rawLine); if (cols.length < 4) continue;
+const get = (idxV, fallback = 0) => idxV !== -1 && idxV < cols.length ? parseNum(cols[idxV]) : fallback;
+
+const dateStr = String(cols[0] || "");
+const parts = dateStr.split(/[./-]/); if (parts.length < 3) continue;
+const dObj = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+if (isNaN(dObj.getTime())) continue;
+
+// KW-Berechnung (ISO 8601)
+const dtKW = new Date(dObj.getTime());
+dtKW.setHours(0,0,0,0);
+dtKW.setDate(dtKW.getDate() + 3 - (dtKW.getDay() + 6) % 7);
+const week1 = new Date(dtKW.getFullYear(), 0, 4);
+const kw = 1 + Math.round(((dtKW.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+
+const row = {
+datum: dateStr, timestamp: dObj, week: kw, month: dObj.getMonth() + 1, year: dObj.getFullYear(),
+eigenverbrauch: parseNum(cols[headers.findIndex(h => h.includes('Eigenverbrauch (kWh)'))]),
+netzimport: parseNum(cols[headers.findIndex(h => h === 'Netzimport (kWh)')]),
+speicherLadung: parseNum(cols[headers.findIndex(h => h.includes('Speicherladung (kWh)'))]),
+speicherEntladung: parseNum(cols[headers.findIndex(h => h.includes('Speicherentladung (kWh)'))]),
+gesamtErzeugung: parseNum(cols[headers.findIndex(h => h.includes('Gesamterzeugung'))]) ||
+parseNum(cols[headers.findIndex(h => h.includes('Gesamte Solarstromerzeugung'))]),
+einspeisung: get(einspeisungIdx),
+pv1: get(pv1Idx), pv2: get(pv2Idx), pv3: get(pv3Idx), pv4: get(pv4Idx),
+smartPlugVerbrauch: get(smartPlugIdx),
+co2: get(co2Idx),
+genutzteSolar: get(genutzteSolarIdx),
+solarZuHaus: get(solarZuHausIdx),
+solarZuSpeicher: get(solarZuSpeicherIdx),
+netzZuHaus: get(netzZuHausIdx),
+netzZuSpeicher: get(netzZuSpeicherIdx),
+speicherZuHaus: get(speicherZuHausIdx),
+gesamteSolar: get(gesamteSolarIdx),
+};
+resultRows.push(row);
+}
+if (resultRows.length === 0) throw new Error("Keine gültigen Tagesdaten gefunden.");
+resultRows.sort((a, b) => a.timestamp - b.timestamp);
+setRawData(resultRows); setError(null);
+} catch (err) { setError(err.message); setRawData(null); }
+};
+reader.readAsText(file, 'UTF-8');
+};
+
+// Aggregation nach Ansichtsmodus
+const allAggregatedData = useMemo(() => {
+if (!rawData) return [];
+const groups = {};
+const FIELDS = ['gesamtErzeugung','eigenverbrauch','netzimport','speicherLadung','speicherEntladung',
+'pv1','pv2','pv3','pv4','einspeisung','smartPlugVerbrauch','co2','genutzteSolar',
+'solarZuHaus','solarZuSpeicher','netzZuHaus','netzZuSpeicher','speicherZuHaus','gesamteSolar'];
+rawData.forEach(row => {
+let key, sortKey;
+if (viewMode === 'month' || viewMode === 'all') { key = `${MONTH_NAMES[row.month - 1]} ${row.year}`; sortKey = row.year * 100 + row.month; }
+else if (viewMode === 'year') { key = `${row.year}`; sortKey = row.year; }
+else { key = `KW ${row.week} ${row.year}`; sortKey = row.year * 100 + row.week; }
+if (!groups[key]) { groups[key] = { label: String(key), sortKey }; FIELDS.forEach(f => groups[key][f] = 0); }
+FIELDS.forEach(f => { groups[key][f] += (row[f] || 0); });
+});
+return Object.values(groups).sort((a, b) => a.sortKey - b.sortKey).map(g => ({ ...g, datum: g.label }));
+}, [rawData, viewMode]);
+
+useEffect(() => {
+if (rawData) {
+const src = viewMode === 'day' ? rawData : allAggregatedData;
+setScrollIndex(Math.max(0, (src.length || 0) - WINDOW_SIZE));
+}
+}, [viewMode, rawData, allAggregatedData]);
+
+const chartData = useMemo(() => {
+if (!rawData) return [];
+const src = viewMode === 'day' ? rawData : allAggregatedData;
+if (viewMode === 'year' || viewMode === 'all') return allAggregatedData;
+return src.slice(scrollIndex, scrollIndex + WINDOW_SIZE);
+}, [rawData, viewMode, allAggregatedData, scrollIndex]);
+
+const sourceDataLength = rawData ? (viewMode === 'day' ? rawData.length : allAggregatedData.length) : 0;
+const showSlider = rawData && !['year','all'].includes(viewMode) && sourceDataLength > WINDOW_SIZE;
+
+// Statistiken
+const stats = useMemo(() => {
+if (!rawData || rawData.length === 0) return null;
+const basis = viewMode === 'all' ? allAggregatedData : chartData;
+if (basis.length === 0) return null;
+const lastOnly = ['day','week','month','year'].includes(viewMode) && chartData.length > 0;
+const calc = lastOnly ? [chartData[chartData.length - 1]] : basis;
+const sum = (key) => calc.reduce((a, c) => a + (c[key] || 0), 0);
+
+const totalGen = sum('gesamtErzeugung');
+const totalCons = sum('eigenverbrauch');
+const totalImp = sum('netzimport');
+const totalExp = sum('einspeisung');
+const totalCO2 = sum('co2');
+const totalGenutzt = sum('genutzteSolar');
+const totalPlugs = sum('smartPlugVerbrauch');
+const totalSpeicherLadung = sum('speicherLadung');
+const totalSpeicherEntladung = sum('speicherEntladung');
+
+const totalSolarZuHaus = sum('solarZuHaus');
+const totalSolarZuSpeicher = sum('solarZuSpeicher');
+const totalSpeicherZuHaus = sum('speicherZuHaus');
+
+// Verluste der PV-Erzeugung
+const verluste = Math.max(0, totalGen - totalExp - totalSolarZuHaus - totalSolarZuSpeicher);
+
+// Tatsächlich genutzte PV-Energie
+const genutzteKwh = Math.max(0, totalGen - verluste);
+
+// Für die reale Stromkostenersparnis zählen nur kWh, die Netzbezug ersetzen
+const eingesparteKwh = totalSolarZuHaus + totalSpeicherZuHaus;
+
+// Monetäre Ersparnis
+const savings = eingesparteKwh * energyPrice;
+
+// Einnahmen durch Einspeisung
+const einspeisungErtrag = totalExp * feedInTariff;
+
+// Gesamtertrag
+const gesamtErtrag = savings + einspeisungErtrag;
+
+// ROI
+const roiPercent = systemCost > 0 ? (gesamtErtrag / systemCost) * 100 : 0;
+
+// Autarkie
+const autarkie = totalCons > 0 ? (eingesparteKwh / totalCons) * 100 : 0;
+
+
+
+const eigenverbrauchsquote = totalGen > 0 ? (totalGenutzt / totalGen) * 100 : 0;
+const speicherEffizienz = totalSpeicherLadung > 0 ? (totalSpeicherEntladung / totalSpeicherLadung) * 100 : 0;
+const plugPct = totalCons > 0 ? (totalPlugs / totalCons * 100).toFixed(1) : '0.0';
+
+return {
+totalGen: totalGen.toFixed(2), totalCons: totalCons.toFixed(2),
+totalImp: totalImp.toFixed(2), totalExp: totalExp.toFixed(2),
+totalCO2: totalCO2.toFixed(1), totalPlugs: totalPlugs.toFixed(2),
+plugPct,
+savings: savings.toFixed(2), einspeisungErtrag: einspeisungErtrag.toFixed(2),
+gesamtErtrag: gesamtErtrag.toFixed(2),
+roiPercent: roiPercent.toFixed(1),
+autarkie: autarkie.toFixed(1),
+eigenverbrauchsquote: eigenverbrauchsquote.toFixed(1),
+speicherEffizienz: speicherEffizienz.toFixed(1),
+currentPeriod: lastOnly ? chartData[chartData.length - 1]?.datum : null
+};
+}, [chartData, allAggregatedData, energyPrice, systemCost, feedInTariff, viewMode, rawData]);
+
+// Rekorde
+const records = useMemo(() => {
+if (!rawData || rawData.length === 0) return null;
+let maxGen = { val: 0, date: '-' }, maxCO2 = { val: 0, date: '-' }, minImp = { val: Infinity, date: '-' }, maxAut = { val: 0, date: '-' };
+rawData.forEach(d => {
+if (d.gesamtErzeugung > maxGen.val) maxGen = { val: d.gesamtErzeugung, date: d.datum };
+if (d.co2 > maxCO2.val) maxCO2 = { val: d.co2, date: d.datum };
+if (d.netzimport < minImp.val) minImp = { val: d.netzimport, date: d.datum };
+const aut = d.eigenverbrauch > 0 ? Math.max(0, d.eigenverbrauch - d.netzimport) / d.eigenverbrauch * 100 : 0;
+if (aut > maxAut.val) maxAut = { val: aut, date: d.datum };
+});
+return {
+maxGen, maxCO2,
+minImp: { val: minImp.val === Infinity ? 0 : minImp.val, date: minImp.date },
+maxAut
+};
+}, [rawData]);
+
+// Amortisations-Prognose (über die gesamte Anlagenlaufzeit, unabhängig vom Ansichtsfilter)
+const amortization = useMemo(() => {
+if (!rawData || rawData.length === 0 || systemCost <= 0) return null;
+
+// Täglicher Ertrag = ersparte Stromkosten (Solar/Speicher → Haus) + Einspeisevergütung
+const dailyErtrag = rawData.map(d => (d.solarZuHaus + d.speicherZuHaus) * energyPrice + d.einspeisung * feedInTariff);
+
+let cumulative = 0;
+for (let i = 0; i < dailyErtrag.length; i++) {
+cumulative += dailyErtrag[i];
+if (cumulative >= systemCost) {
+return { isAmortized: true, dateStr: formatDateDE(rawData[i].timestamp), days: i + 1 };
+}
+}
+
+// Noch nicht amortisiert -> Prognose anhand des Ø-Tagesertrags der letzten 365 Tage (saisonal robuster als Lebenszeit-Ø)
+const windowSize = Math.min(365, dailyErtrag.length);
+const recentWindow = dailyErtrag.slice(-windowSize);
+const avgDailyErtrag = recentWindow.reduce((a, c) => a + c, 0) / recentWindow.length;
+
+if (avgDailyErtrag <= 0) return { isAmortized: false, notCalculable: true };
+
+const daysRemaining = Math.ceil((systemCost - cumulative) / avgDailyErtrag);
+const lastDate = rawData[rawData.length - 1].timestamp;
+const projectedDate = new Date(lastDate.getTime());
+projectedDate.setDate(projectedDate.getDate() + daysRemaining);
+
+return { isAmortized: false, dateStr: formatDateDE(projectedDate), daysRemaining, avgDailyErtrag };
+}, [rawData, energyPrice, feedInTariff, systemCost]);
+
+// Smart Plug Statistiken
+const plugStats = useMemo(() => {
+if (!rawData) return null;
+const basis = viewMode === 'all' ? allAggregatedData : chartData;
+const calc = (['day','week','month','year'].includes(viewMode) && chartData.length > 0) ? [chartData[chartData.length-1]] : basis;
+const totalPlug = calc.reduce((a,c) => a + (c.smartPlugVerbrauch||0), 0);
+const totalCons = calc.reduce((a,c) => a + (c.eigenverbrauch||0), 0);
+const plugDays = rawData.filter(d => d.smartPlugVerbrauch > 0).length;
+const allPlugTotal = rawData.reduce((a,c) => a+(c.smartPlugVerbrauch||0), 0);
+return {
+totalPlug,
+totalCons,
+plugPct: totalCons > 0 ? (totalPlug / totalCons * 100).toFixed(1) : '0.0',
+plugDays,
+plugAvg: plugDays > 0 ? (allPlugTotal / plugDays).toFixed(2) : '0.00',
+plugTotal: allPlugTotal.toFixed(2),
+hasData: allPlugTotal > 0,
+sp: totalPlug,
+rest: Math.max(0, totalCons - totalPlug),
+};
+}, [rawData, chartData, allAggregatedData, viewMode]);
+
+// PV-Verteilung
+const pvDistribution = useMemo(() => {
+const basis = viewMode === 'all' ? allAggregatedData : chartData;
+if (!basis || basis.length === 0) return [];
+const calc = (['day','week','month','year'].includes(viewMode) && chartData.length > 0) ? [chartData[chartData.length - 1]] : basis;
+return [
+{ name: 'PV1', value: calc.reduce((a, c) => a + (c.pv1 || 0), 0) },
+{ name: 'PV2', value: calc.reduce((a, c) => a + (c.pv2 || 0), 0) },
+{ name: 'PV3', value: calc.reduce((a, c) => a + (c.pv3 || 0), 0) },
+{ name: 'PV4', value: calc.reduce((a, c) => a + (c.pv4 || 0), 0) },
+].filter(x => x.value > 0.001);
+}, [chartData, allAggregatedData, viewMode]);
+
+const takeScreenshot = async () => {
+if (!dashboardRef.current || typeof html2canvas === 'undefined') return;
+setIsExporting(true);
+try {
+const canvas = await html2canvas(dashboardRef.current, {
+scale: 2, useCORS: true,
+backgroundColor: darkMode ? "#0f172a" : "#f8fafc",
+ignoreElements: (el) => el.classList.contains('no-export')
+});
+const link = document.createElement('a');
+link.download = `ANKER_Analysis_${new Date().toISOString().split('T')[0]}.jpg`;
+link.href = canvas.toDataURL('image/jpeg', 0.95);
+link.click();
+} catch (err) { console.error(err); } finally { setIsExporting(false); }
+};
+
+const chartAxisColor = darkMode ? "#64748b" : "#94a3b8";
+const chartGridColor = darkMode ? "#334155" : "#f1f5f9";
+const cardBg = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100';
+const tooltipStyle = { borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', backgroundColor: darkMode ? '#1e293b' : '#ffffff', color: darkMode ? '#f1f5f9' : '#0f172a' };
+
+// --- Landing Page ---
+if (!AreaChart) return (
+<div className="min-h-screen flex items-center justify-center bg-slate-50 p-10 text-center">
+<div className="bg-white p-8 rounded-3xl shadow-xl max-w-md">
+<h2 className="text-xl font-bold mb-2">Bibliotheken werden geladen...</h2>
+<button onClick={() => window.location.reload()} className="mt-4 px-6 py-2 bg-blue-600 text-white font-bold rounded-full">Neu laden</button>
+</div>
+</div>
+);
+
+if (!rawData) return (
+<div className={`${darkMode ? 'bg-slate-900' : 'bg-slate-50'} min-h-screen flex items-center justify-center p-6 transition-colors duration-300`}>
+<div className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} max-w-xl w-full rounded-3xl shadow-xl p-8 border text-center animate-in`}>
+<div className="mb-6 flex justify-center">
+<div className={`${darkMode ? 'bg-slate-700' : 'bg-slate-50'} px-6 py-4 rounded-full`}>
+<AnkerSolarLogo darkMode={darkMode} />
+</div>
+</div>
+<div className="flex items-center justify-end mb-4">
+<button onClick={() => setDarkMode(!darkMode)} className={`p-2.5 rounded-full border ${darkMode ? 'bg-slate-700 border-slate-600 text-orange-400' : 'bg-white border-slate-200 text-teal-600'}`}>
+<Icon name={darkMode ? "sun" : "moon"} size={18} />
+</button>
+</div>
+<h1 className={`text-2xl font-bold mb-2 ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>Solar-Analyse Tool</h1>
+<p className={`${darkMode ? 'text-slate-400' : 'text-slate-500'} mb-8 text-sm`}>Laden Sie Ihre Energiedetails-CSV aus der Anker Solix App per Klick oder Drag & Drop hoch.</p>
+
+<div onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+onDragLeave={() => setIsDragging(false)}
+onDrop={(e) => { e.preventDefault(); setIsDragging(false); const f = e.dataTransfer.files[0]; if (f) processFile(f); }}
+onClick={() => fileInputRef.current.click()}
+className={`border-2 border-dashed rounded-2xl p-10 cursor-pointer transition-all ${isDragging ? (darkMode ? 'border-orange-500 bg-orange-900/20' : 'border-orange-500 bg-orange-50 shadow-inner') : (darkMode ? 'border-slate-600 hover:border-orange-500 hover:bg-slate-700' : 'border-slate-200 hover:border-orange-400 hover:bg-slate-50')}`}>
+<input type="file" accept=".csv" className="hidden" ref={fileInputRef} onChange={(e) => processFile(e.target.files[0])} />
+<Icon name="arrow-down-circle" size={48} className={`mx-auto mb-4 transition-all ${isDragging ? 'text-orange-500 scale-110' : (darkMode ? 'text-slate-500' : 'text-slate-300')}`} />
+<p className={`font-bold ${isDragging ? 'text-orange-600' : (darkMode ? 'text-slate-300' : 'text-slate-600')}`}>CSV Datei hierher ziehen oder auswählen</p>
+</div>
+
+<div className={`mt-10 pt-8 border-t text-left ${darkMode ? 'border-slate-700' : 'border-slate-100'}`}>
+<h2 className={`text-sm font-black uppercase tracking-widest mb-4 flex items-center gap-2 ${darkMode ? 'text-orange-500' : 'text-orange-600'}`}>
+<Icon name="info" size={16} /> Was analysiert dieses Tool?
+</h2>
+<ul className={`text-xs space-y-2 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+{[
+['zap','ROI-Berechnung mit Einspeisevergütung und Strompreis'],
+['leaf','CO₂-Einsparung aus den Energiedaten'],
+['pie-chart','PV-String Verteilung & Speicher-Effizienz'],
+['calendar','Kalender-Heatmap der täglichen Solarproduktion'],
+['bar-chart-2','Energiefluss: Solar → Haus / Speicher / Netz'],
+['shield-check','100% lokal im Browser – keine Daten verlassen Ihr Gerät'],
+].map(([icon, text]) => (
+<li key={icon} className="flex items-center gap-2 italic">
+<Icon name={icon} size={13} className="text-emerald-500 shrink-0" />
+{text}
+</li>
+))}
+</ul>
+</div>
+{error && <div className={`mt-6 p-4 rounded-xl flex items-center gap-2 text-sm ${darkMode ? 'bg-rose-900/20 text-rose-400 border border-rose-900' : 'bg-rose-50 text-rose-600'}`}>
+<Icon name="alert-circle" size={16} /> {error}
+</div>}
+</div>
+</div>
+);
+
+// --- Dashboard ---
+const tabs = [
+{ id: 'overview', label: 'Übersicht', icon: 'layout-dashboard' },
+{ id: 'solar', label: 'Solarfluss', icon: 'sun' },
+{ id: 'storage', label: 'Speicher', icon: 'battery-charging' },
+{ id: 'co2', label: 'CO₂', icon: 'leaf' },
+{ id: 'smartplug', label: 'Smart Plug', icon: 'plug' },
+{ id: 'heatmap', label: 'Heatmap', icon: 'calendar' },
+{ id: 'table', label: 'Tabelle', icon: 'table' },
+];
+
+return (
+<div ref={dashboardRef} className={`min-h-screen p-4 md:p-8 font-sans overflow-x-hidden transition-colors duration-300 ${darkMode ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+<div className="max-w-[1700px] mx-auto">
+
+{/* Header */}
+<header className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div className="flex-1">
+<div className="flex items-center gap-4">
+<AnkerSolarLogo darkMode={darkMode} />
+<div className={`h-8 w-px hidden md:block ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`} />
+<h1 className={`text-xl font-black tracking-tighter uppercase select-none ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+SYSTEM <span className="italic">ANALYTICS</span>
+</h1>
+</div>
+<p className={`mt-1 flex items-center gap-2 truncate text-xs ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+<Icon name="file-text" size={12} /> {fileName}
+<span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${darkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>{rawData?.length} Tage</span>
+</p>
+</div>
+<div className="flex flex-wrap items-center gap-2 no-export">
+<button onClick={takeScreenshot} disabled={isExporting} className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-bold shadow-sm ${darkMode ? 'bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+<Icon name="camera" size={15} /> Export
+</button>
+<button onClick={() => setShowSettings(!showSettings)} className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-bold shadow-sm ${showSettings ? (darkMode ? 'bg-orange-600 text-white' : 'bg-orange-500 text-white') : (darkMode ? 'bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50')}`}>
+<Icon name="sliders-horizontal" size={15} /> Einstellungen
+</button>
+<div className={`flex p-1 rounded-full border shadow-sm ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+{['day','week','month','year','all'].map(mode => (
+<button key={mode} onClick={() => setViewMode(mode)}
+className={`px-3 py-2 rounded-full text-[10px] md:text-xs font-bold transition-all ${viewMode === mode ? (darkMode ? 'bg-orange-600 text-white shadow-sm' : 'bg-orange-500 text-white shadow-sm') : (darkMode ? 'text-slate-500 hover:bg-slate-700' : 'text-slate-500 hover:bg-slate-50')}`}>
+{mode === 'day' ? 'Tag' : mode === 'week' ? 'Woche' : mode === 'month' ? 'Monat' : mode === 'year' ? 'Jahr' : 'Alle'}
+</button>
+))}
+</div>
+<button onClick={() => setRawData(null)} className={`p-2.5 rounded-full border shadow-sm ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Icon name="x" size={16} /></button>
+<button onClick={() => setDarkMode(!darkMode)} className={`p-2.5 rounded-full border shadow-sm ${darkMode ? 'bg-slate-800 border-slate-700 text-orange-400 hover:bg-slate-700' : 'bg-white border-slate-200 text-teal-600 hover:bg-slate-50'}`}>
+<Icon name={darkMode ? "sun" : "moon"} size={18} />
+</button>
+</div>
+</header>
+
+{/* Einstellungen */}
+{showSettings && (
+<div className={`mb-6 p-6 rounded-3xl shadow-lg border no-export animate-in ${darkMode ? 'bg-slate-800 border-orange-900' : 'bg-white border-orange-100'}`}>
+<h3 className={`text-sm font-black uppercase tracking-widest mb-5 flex items-center gap-2 ${darkMode ? 'text-orange-500' : 'text-orange-600'}`}>
+<Icon name="sliders-horizontal" size={16} /> ROI & Tarif-Einstellungen
+</h3>
+<div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+
+<div className="space-y-3">
+  <label className={`text-xs font-black uppercase tracking-wider flex items-center gap-2 ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+    <Icon name="zap" size={14} className="text-orange-500" /> Strompreis (€/kWh)
+  </label>
+  <input
+    type="number"
+    min="0"
+    step="0.00001"
+    value={energyPrice}
+    onChange={e => setEnergyPrice(parseFloat(e.target.value) || 0)}
+    className={`w-full p-3 border rounded-xl font-bold focus:ring-2 focus:ring-orange-500 outline-none ${
+      darkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-100 text-slate-900'
+    }`}
+  />
+  <div className={`p-3 rounded-xl border font-bold text-sm ${darkMode ? 'bg-slate-900 border-slate-700 text-orange-500' : 'bg-slate-50 border-slate-100 text-orange-600'}`}>
+    {energyPrice.toFixed(5)} €/kWh
+  </div>
+</div>
+
+
+<div className="space-y-3">
+<label className={`text-xs font-black uppercase tracking-wider flex items-center gap-2 ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+<Icon name="trending-up" size={14} className="text-emerald-500" /> Einspeisevergütung (€/kWh)
+</label>
+<input type="range" min="0.00" max="0.20" step="0.001" value={feedInTariff} onChange={e => setFeedInTariff(parseFloat(e.target.value))} className="w-full" />
+<div className={`p-3 rounded-xl border font-bold text-sm ${darkMode ? 'bg-slate-900 border-slate-700 text-emerald-500' : 'bg-slate-50 border-slate-100 text-emerald-600'}`}>{feedInTariff.toFixed(3)} €/kWh</div>
+</div>
+<div className="space-y-3">
+<label className={`text-xs font-black uppercase tracking-wider flex items-center gap-2 ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+<Icon name="wallet" size={14} className="text-blue-500" /> Anlagenkosten (€)
+</label>
+<input type="number" value={systemCost} onChange={e => setSystemCost(parseInt(e.target.value) || 0)} className={`w-full p-3 border rounded-xl font-bold focus:ring-2 focus:ring-orange-500 outline-none ${darkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-100 text-slate-900'}`} />
+</div>
+</div>
+</div>
+)}
+
+{stats && (
+<>
+{/* Stat-Karten */}
+<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 mb-6">
+<StatCard title={stats.currentPeriod ? `Gesamtertrag (${stats.currentPeriod})` : "Gesamtertrag (ROI)"} value={`${stats.gesamtErtrag} €`} iconName="euro" highlight={true} darkMode={darkMode}
+secondaryTitle={`Amortisation · ${stats.currentPeriod ? stats.currentPeriod : 'Gesamt'}`} secondaryValue={`${stats.roiPercent}% · ${(parseFloat(stats.savings)).toFixed(2)} € ersparter Strom`}
+footer={amortization && (
+amortization.isAmortized ? (
+<div className="flex items-center gap-1.5 text-emerald-500">
+<Icon name="check-circle-2" size={12} />
+<span className="text-[10px] font-bold">Amortisiert am {amortization.dateStr} (Tag {amortization.days})</span>
+</div>
+) : amortization.notCalculable ? (
+<div className={`flex items-center gap-1.5 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+<Icon name="help-circle" size={12} />
+<span className="text-[10px] font-bold">Amortisationsdatum nicht berechenbar</span>
+</div>
+) : (
+<div className="flex items-center gap-1.5 text-orange-500">
+<Icon name="calendar-clock" size={12} />
+<span className="text-[10px] font-bold">Voraus. Amortisation: {amortization.dateStr} (noch {amortization.daysRemaining} Tage)</span>
+</div>
+)
+)} />
+<StatCard title={stats.currentPeriod ? `Erzeugung (${stats.currentPeriod})` : "Erzeugung"} value={`${stats.totalGen} kWh`} iconName="sun" iconColor="text-orange-500"
+secondaryTitle="Einspeisung" secondaryValue={`${stats.totalExp} kWh · ${stats.einspeisungErtrag} €`} darkMode={darkMode} />
+<StatCard title={stats.currentPeriod ? `Hausverbrauch (${stats.currentPeriod})` : "Hausverbrauch"} value={`${stats.totalCons} kWh`} iconName="home" iconColor="text-blue-500"
+secondaryTitle={`Netzbezug · Smart Plug${parseFloat(stats.totalPlugs) > 0 ? ` (${stats.plugPct}%)` : ''}`}
+secondaryValue={`${stats.totalImp} kWh · ${stats.totalPlugs} kWh`} darkMode={darkMode} />
+<StatCard title="Autarkiequote" value={`${stats.autarkie}%`} iconName="shield" iconColor="text-emerald-500"
+secondaryTitle="Eigenverbrauchsquote" secondaryValue={`${stats.eigenverbrauchsquote}% Solar genutzt`} darkMode={darkMode} />
+<StatCard title="CO₂ Einsparung" value={`${stats.totalCO2} kg`} iconName="leaf" iconColor="text-green-500"
+secondaryTitle="Speicher-Effizienz" secondaryValue={`${stats.speicherEffizienz}% Rückspeisung`} darkMode={darkMode} />
+{/* Rekorde-Karte */}
+{records && (
+<div className={`${cardBg} p-5 rounded-2xl shadow-sm border flex flex-col`} style={{ minHeight: '150px' }}>
+<div className="flex justify-between items-start mb-2">
+<div className={`p-2 rounded-xl ${darkMode ? 'bg-orange-900/30' : 'bg-orange-50'}`}><Icon name="trophy" size={18} className="text-orange-600" /></div>
+<span className={`text-[7px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full ${darkMode ? 'bg-orange-900/40 text-orange-400' : 'bg-orange-50 text-orange-600'}`}>Rekorde</span>
+</div>
+<div className="space-y-1.5 flex-1">
+<div>
+<h3 className={`text-[8px] font-bold uppercase tracking-wider ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Peak Produktion</h3>
+<p className={`text-sm font-black ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>{records.maxGen.val.toFixed(2)} kWh</p>
+<p className={`text-[8px] ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>{records.maxGen.date}</p>
+</div>
+<div className={`border-t pt-1 ${darkMode ? 'border-slate-700' : 'border-slate-100'}`}>
+<h3 className={`text-[8px] font-bold uppercase tracking-wider ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Max. Autarkie</h3>
+<p className={`text-sm font-black ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>{records.maxAut.val.toFixed(1)}%</p>
+<p className={`text-[8px] ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>{records.maxAut.date}</p>
+</div>
+</div>
+</div>
+)}
+</div>
+
+{/* Tab-Navigation */}
+<div className={`flex overflow-x-auto custom-scrollbar gap-1 p-1 rounded-full border mb-6 no-export ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+{tabs.map(tab => (
+<button key={tab.id} onClick={() => setActiveTab(tab.id)}
+className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${activeTab === tab.id ? (darkMode ? 'bg-orange-600 text-white' : 'bg-orange-500 text-white') : (darkMode ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-700' : 'text-slate-500 hover:bg-slate-50')}`}>
+<Icon name={tab.icon} size={14} /> {tab.label}
+</button>
+))}
+</div>
+
+{/* Slider (zeitraum-übergreifend) */}
+{showSlider && (
+<div className={`mb-5 px-4 py-3 rounded-2xl border flex items-center gap-4 no-export ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+<Icon name="calendar-range" size={16} className={darkMode ? 'text-slate-500' : 'text-slate-400'} />
+<input type="range" min="0" max={Math.max(0, sourceDataLength - WINDOW_SIZE)} value={scrollIndex}
+onChange={e => setScrollIndex(parseInt(e.target.value))} className="flex-1 accent-orange-500" />
+<span className={`text-[10px] font-bold px-3 py-1.5 rounded-full min-w-[150px] text-center ${darkMode ? 'bg-orange-900/30 text-orange-500' : 'bg-orange-50 text-orange-600'}`}>
+{chartData[0]?.datum || "?"} — {chartData[chartData.length-1]?.datum || "?"}
+</span>
+</div>
+)}
+
+{/* ===== TAB: ÜBERSICHT ===== */}
+{activeTab === 'overview' && (
+<div className="space-y-6 animate-in">
+<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+{/* Energiefluss-Diagramm */}
+<div className={`${cardBg} lg:col-span-2 p-6 rounded-2xl shadow-sm border flex flex-col`}>
+<h2 className={`text-lg font-bold mb-6 flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+<Icon name="activity" size={20} className={darkMode ? 'text-slate-500' : 'text-slate-400'} /> Energiefluss
+</h2>
+<div className="h-[380px]">
+<ResponsiveContainer width="100%" height="100%">
+<AreaChart data={chartData}>
+<defs>
+<linearGradient id="gGen" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#FBBF24" stopOpacity={0.35}/><stop offset="95%" stopColor="#FBBF24" stopOpacity={0}/></linearGradient>
+<linearGradient id="gCons" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/><stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/></linearGradient>
+<linearGradient id="gImp" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f43f5e" stopOpacity={0.15}/><stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/></linearGradient>
+</defs>
+<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridColor} />
+<XAxis dataKey="datum" fontSize={10} stroke={chartAxisColor} tickMargin={10} />
+<YAxis fontSize={10} stroke={chartAxisColor} unit=" kWh" tickMargin={8} />
+<Tooltip content={<CustomTooltip darkMode={darkMode} />} />
+<Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+<Area type="monotone" name="Solar erzeugt" dataKey="gesamtErzeugung" stroke="#FBBF24" fill="url(#gGen)" strokeWidth={2.5} isAnimationActive={false} />
+<Area type="monotone" name="Hausverbrauch" dataKey="eigenverbrauch" stroke="#3B82F6" fill="url(#gCons)" strokeWidth={2.5} isAnimationActive={false} />
+<Area type="monotone" name="Netzbezug" dataKey="netzimport" stroke="#f43f5e" fill="url(#gImp)" strokeDasharray="5 5" strokeWidth={2} isAnimationActive={false} />
+</AreaChart>
+</ResponsiveContainer>
+</div>
+</div>
+{/* PV-String Verteilung */}
+<div className={`${cardBg} p-6 rounded-2xl shadow-sm border flex flex-col`}>
+<h2 className={`text-lg font-bold mb-4 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>String Verteilung</h2>
+<div className="h-[220px]">
+<ResponsiveContainer width="100%" height="100%">
+<PieChart>
+<Pie data={pvDistribution} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={6} dataKey="value" isAnimationActive={false}>
+{pvDistribution.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} cornerRadius={4} />)}
+</Pie>
+<Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v.toFixed(2)} kWh`]} />
+<Legend iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+</PieChart>
+</ResponsiveContainer>
+</div>
+<div className={`mt-3 pt-3 border-t ${darkMode ? 'border-slate-700' : 'border-slate-100'}`}>
+{pvDistribution.map((pv, idx) => {
+const total = pvDistribution.reduce((a, c) => a + c.value, 0);
+const pct = total > 0 ? (pv.value / total * 100).toFixed(1) : '0.0';
+return (
+<div key={pv.name} className={`flex justify-between items-center py-1.5 text-xs ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+<span className="flex items-center gap-2">
+<div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[idx] }}></div>
+{pv.name}
+</span>
+<span className="font-bold">{pv.value.toFixed(2)} kWh <span className={`font-normal text-[9px] ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>({pct}%)</span></span>
+</div>
+);
+})}
+</div>
+</div>
+</div>
+
+{/* Autarkie + Eigenverbrauch Trend */}
+<div className={`${cardBg} p-6 rounded-2xl shadow-sm border`}>
+<h2 className={`text-lg font-bold mb-6 flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+<Icon name="shield" size={20} className="text-emerald-500" /> Autarkie & Eigenverbrauchsquote
+</h2>
+<div className="h-[260px]">
+<ResponsiveContainer width="100%" height="100%">
+<ComposedChart data={chartData}>
+<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridColor} />
+<XAxis dataKey="datum" fontSize={10} stroke={chartAxisColor} tickMargin={10} />
+<YAxis yAxisId="left" fontSize={10} stroke={chartAxisColor} unit=" kWh" tickMargin={8} />
+<YAxis yAxisId="right" orientation="right" fontSize={10} stroke={chartAxisColor} unit="%" domain={[0, 100]} tickMargin={8} />
+<Tooltip content={<CustomTooltip darkMode={darkMode} />} />
+<Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+<Bar yAxisId="left" name="Solar genutzt (kWh)" dataKey="genutzteSolar" fill="#10B981" opacity={0.7} radius={[3,3,0,0]} isAnimationActive={false} />
+<Bar yAxisId="left" name="Einspeisung (kWh)" dataKey="einspeisung" fill="#2DD4BF" opacity={0.7} radius={[3,3,0,0]} isAnimationActive={false} />
+</ComposedChart>
+</ResponsiveContainer>
+</div>
+</div>
+</div>
+)}
+
+{/* ===== TAB: SOLARFLUSS ===== */}
+{activeTab === 'solar' && (
+<div className="space-y-6 animate-in">
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+{/* Solarenergie-Verwendung */}
+<div className={`${cardBg} p-6 rounded-2xl shadow-sm border`}>
+<h2 className={`text-lg font-bold mb-6 flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+<Icon name="sun" size={20} className="text-orange-500" /> Solarstrom-Verwendung
+</h2>
+<p className={`text-xs mb-4 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Wohin fließt der erzeugte Solarstrom?</p>
+<div className="h-[300px]">
+<ResponsiveContainer width="100%" height="100%">
+<BarChart data={chartData}>
+<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridColor} />
+<XAxis dataKey="datum" fontSize={10} stroke={chartAxisColor} tickMargin={10} />
+<YAxis fontSize={10} stroke={chartAxisColor} unit=" kWh" tickMargin={8} />
+<Tooltip content={<CustomTooltip darkMode={darkMode} />} />
+<Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+<Bar name="→ Haushalt" dataKey="solarZuHaus" stackId="a" fill="#FBBF24" isAnimationActive={false} />
+<Bar name="→ Speicher" dataKey="solarZuSpeicher" stackId="a" fill="#10B981" isAnimationActive={false} />
+<Bar name="→ Netz (Einspeisung)" dataKey="einspeisung" stackId="a" fill="#2DD4BF" radius={[4,4,0,0]} isAnimationActive={false} />
+</BarChart>
+</ResponsiveContainer>
+</div>
+</div>
+{/* Haushalt-Versorgung */}
+<div className={`${cardBg} p-6 rounded-2xl shadow-sm border`}>
+<h2 className={`text-lg font-bold mb-6 flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+<Icon name="home" size={20} className="text-blue-500" /> Haushalts-Versorgung
+</h2>
+<p className={`text-xs mb-4 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Woher kommt der Strom im Haushalt?</p>
+<div className="h-[300px]">
+<ResponsiveContainer width="100%" height="100%">
+<BarChart data={chartData}>
+<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridColor} />
+<XAxis dataKey="datum" fontSize={10} stroke={chartAxisColor} tickMargin={10} />
+<YAxis fontSize={10} stroke={chartAxisColor} unit=" kWh" tickMargin={8} />
+<Tooltip content={<CustomTooltip darkMode={darkMode} />} />
+<Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+<Bar name="Von Solar" dataKey="solarZuHaus" stackId="b" fill="#FBBF24" isAnimationActive={false} />
+<Bar name="Von Speicher" dataKey="speicherZuHaus" stackId="b" fill="#10B981" isAnimationActive={false} />
+<Bar name="Vom Netz" dataKey="netzZuHaus" stackId="b" fill="#f43f5e" radius={[4,4,0,0]} isAnimationActive={false} />
+</BarChart>
+</ResponsiveContainer>
+</div>
+</div>
+</div>
+{/* PV-Strings Vergleich */}
+<div className={`${cardBg} p-6 rounded-2xl shadow-sm border`}>
+<h2 className={`text-lg font-bold mb-6 flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+<Icon name="git-branch" size={20} className={darkMode ? 'text-slate-500' : 'text-slate-400'} /> PV-String Tagesvergleich
+</h2>
+<div className="h-[280px]">
+<ResponsiveContainer width="100%" height="100%">
+<BarChart data={chartData}>
+<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridColor} />
+<XAxis dataKey="datum" fontSize={10} stroke={chartAxisColor} tickMargin={10} />
+<YAxis fontSize={10} stroke={chartAxisColor} unit=" kWh" tickMargin={8} />
+<Tooltip content={<CustomTooltip darkMode={darkMode} />} />
+<Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+{['pv1','pv2','pv3','pv4'].map((pv, i) => (
+<Bar key={pv} name={`PV${i+1}`} dataKey={pv} fill={COLORS[i]} radius={i === 3 ? [4,4,0,0] : [0,0,0,0]} stackId="pv" isAnimationActive={false} />
+))}
+</BarChart>
+</ResponsiveContainer>
+</div>
+</div>
+</div>
+)}
+
+{/* ===== TAB: SPEICHER ===== */}
+{activeTab === 'storage' && (
+<div className="space-y-6 animate-in">
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<div className={`${cardBg} p-6 rounded-2xl shadow-sm border`}>
+<h2 className={`text-lg font-bold mb-6 flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+<Icon name="battery-charging" size={20} className="text-emerald-500" /> Speicher Laden & Entladen
+</h2>
+<div className="h-[300px]">
+<ResponsiveContainer width="100%" height="100%">
+<BarChart data={chartData} barGap={6}>
+<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridColor} />
+<XAxis dataKey="datum" stroke={chartAxisColor} fontSize={10} tickMargin={10} />
+<YAxis stroke={chartAxisColor} unit=" kWh" fontSize={10} tickMargin={8} />
+<Tooltip content={<CustomTooltip darkMode={darkMode} />} />
+<Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+<Bar name="Laden (kWh)" dataKey="speicherLadung" fill="#10B981" radius={[4,4,0,0]} isAnimationActive={false} />
+<Bar name="Entladen (kWh)" dataKey="speicherEntladung" fill="#FBBF24" radius={[4,4,0,0]} isAnimationActive={false} />
+</BarChart>
+</ResponsiveContainer>
+</div>
+</div>
+<div className={`${cardBg} p-6 rounded-2xl shadow-sm border`}>
+<h2 className={`text-lg font-bold mb-6 flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+<Icon name="arrow-right-left" size={20} className="text-blue-500" /> Speicher-Effizienz (Lade/Entlade-Ratio)
+</h2>
+<div className="h-[300px]">
+<ResponsiveContainer width="100%" height="100%">
+<ComposedChart data={chartData}>
+<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridColor} />
+<XAxis dataKey="datum" stroke={chartAxisColor} fontSize={10} tickMargin={10} />
+<YAxis yAxisId="left" stroke={chartAxisColor} unit=" kWh" fontSize={10} tickMargin={8} />
+<YAxis yAxisId="right" orientation="right" stroke={chartAxisColor} unit="%" domain={[0,120]} fontSize={10} tickMargin={8} />
+<Tooltip content={<CustomTooltip darkMode={darkMode} />} />
+<Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+<Bar yAxisId="left" name="Ladung (kWh)" dataKey="speicherLadung" fill="#10B981" opacity={0.5} radius={[3,3,0,0]} isAnimationActive={false} />
+<Bar yAxisId="left" name="Entladung (kWh)" dataKey="speicherEntladung" fill="#FBBF24" opacity={0.5} radius={[3,3,0,0]} isAnimationActive={false} />
+<Line yAxisId="right" type="monotone" name="Effizienz (%)"
+dataKey={(d) => d.speicherLadung > 0.01 ? Math.min(120, (d.speicherEntladung / d.speicherLadung * 100)) : null}
+stroke="#2DD4BF" strokeWidth={2.5} dot={{ r: 3, fill: '#2DD4BF' }} isAnimationActive={false} />
+</ComposedChart>
+</ResponsiveContainer>
+</div>
+</div>
+</div>
+{/* Netzbezug-Herkunft */}
+<div className={`${cardBg} p-6 rounded-2xl shadow-sm border`}>
+<h2 className={`text-lg font-bold mb-6 flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+<Icon name="plug" size={20} className="text-rose-500" /> Netzbezug: zu Haushalt vs. zu Speicher
+</h2>
+<div className="h-[260px]">
+<ResponsiveContainer width="100%" height="100%">
+<BarChart data={chartData}>
+<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridColor} />
+<XAxis dataKey="datum" stroke={chartAxisColor} fontSize={10} tickMargin={10} />
+<YAxis stroke={chartAxisColor} unit=" kWh" fontSize={10} tickMargin={8} />
+<Tooltip content={<CustomTooltip darkMode={darkMode} />} />
+<Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+<Bar name="Netz → Haushalt" dataKey="netzZuHaus" stackId="n" fill="#f43f5e" isAnimationActive={false} />
+<Bar name="Netz → Speicher" dataKey="netzZuSpeicher" stackId="n" fill="#fb923c" radius={[4,4,0,0]} isAnimationActive={false} />
+</BarChart>
+</ResponsiveContainer>
+</div>
+</div>
+</div>
+)}
+
+{/* ===== TAB: CO2 ===== */}
+{activeTab === 'co2' && (
+<div className="space-y-6 animate-in">
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
+{[
+{ label: 'Gesamte CO₂-Einsparung', val: `${rawData.reduce((a,c) => a + (c.co2||0), 0).toFixed(1)} kg`, icon: 'leaf', color: 'text-green-500' },
+{ label: 'Ø CO₂ pro Tag', val: `${(rawData.reduce((a,c) => a + (c.co2||0), 0) / rawData.length).toFixed(2)} kg/Tag`, icon: 'calendar', color: 'text-blue-500' },
+{ label: 'Entspricht ca.', val: `${(rawData.reduce((a,c) => a + (c.co2||0), 0) / 21).toFixed(0)} Bäume/Jahr`, icon: 'trees', color: 'text-emerald-500' },
+].map((s, i) => (
+<div key={i} className={`${cardBg} p-5 rounded-2xl shadow-sm border`}>
+<Icon name={s.icon} size={20} className={`mb-3 ${s.color}`} />
+<p className={`text-[9px] font-bold uppercase tracking-wider ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>{s.label}</p>
+<p className={`text-xl font-black ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>{s.val}</p>
+</div>
+))}
+</div>
+<div className={`${cardBg} p-6 rounded-2xl shadow-sm border`}>
+<h2 className={`text-lg font-bold mb-6 flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+<Icon name="leaf" size={20} className="text-green-500" /> CO₂-Einsparung im Zeitverlauf
+</h2>
+<div className="h-[320px]">
+<ResponsiveContainer width="100%" height="100%">
+<AreaChart data={chartData}>
+<defs>
+<linearGradient id="gCO2" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10B981" stopOpacity={0.4}/><stop offset="95%" stopColor="#10B981" stopOpacity={0}/></linearGradient>
+</defs>
+<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridColor} />
+<XAxis dataKey="datum" fontSize={10} stroke={chartAxisColor} tickMargin={10} />
+<YAxis fontSize={10} stroke={chartAxisColor} unit=" kg" tickMargin={8} />
+<Tooltip content={<CustomTooltip darkMode={darkMode} unit="kg CO₂" />} />
+<Area type="monotone" name="CO₂ gespart" dataKey="co2" stroke="#10B981" fill="url(#gCO2)" strokeWidth={2.5} isAnimationActive={false} />
+</AreaChart>
+</ResponsiveContainer>
+</div>
+</div>
+<div className={`${cardBg} p-6 rounded-2xl shadow-sm border`}>
+<h2 className={`text-lg font-bold mb-6 flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+<Icon name="zap" size={20} className="text-orange-500" /> Solar-Erzeugung vs. CO₂
+</h2>
+<div className="h-[260px]">
+<ResponsiveContainer width="100%" height="100%">
+<ComposedChart data={chartData}>
+<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridColor} />
+<XAxis dataKey="datum" fontSize={10} stroke={chartAxisColor} tickMargin={10} />
+<YAxis yAxisId="left" fontSize={10} stroke={chartAxisColor} unit=" kWh" tickMargin={8} />
+<YAxis yAxisId="right" orientation="right" fontSize={10} stroke={chartAxisColor} unit=" kg" tickMargin={8} />
+<Tooltip content={<CustomTooltip darkMode={darkMode} />} />
+<Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+<Bar yAxisId="left" name="Erzeugung (kWh)" dataKey="gesamtErzeugung" fill="#FBBF24" opacity={0.7} radius={[3,3,0,0]} isAnimationActive={false} />
+<Line yAxisId="right" type="monotone" name="CO₂ gespart (kg)" dataKey="co2" stroke="#10B981" strokeWidth={2.5} dot={false} isAnimationActive={false} />
+</ComposedChart>
+</ResponsiveContainer>
+</div>
+</div>
+</div>
+)}
+
+{/* ===== TAB: SMART PLUG ===== */}
+{activeTab === 'smartplug' && plugStats && (
+<div className="space-y-6 animate-in">
+{!plugStats.hasData && (
+<div className={`p-5 rounded-2xl border flex items-center gap-3 ${darkMode ? 'bg-orange-900/20 border-orange-900 text-orange-400' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
+<Icon name="info" size={18} />
+<span className="text-sm font-medium">Keine Smart-Plug-Daten vorhanden.</span>
+</div>
+)}
+<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+<div className={`${cardBg} p-5 rounded-2xl shadow-sm border`}>
+<Icon name="plug" size={18} className="mb-2 text-teal-500" />
+<p className={`text-[9px] font-bold uppercase tracking-wider mb-1 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Gesamtverbrauch</p>
+<p className={`text-xl font-black ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>{plugStats.plugTotal} kWh</p>
+</div>
+<div className={`${cardBg} p-5 rounded-2xl shadow-sm border`}>
+<Icon name="calendar-check" size={18} className="mb-2 text-blue-500" />
+<p className={`text-[9px] font-bold uppercase tracking-wider mb-1 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Aktive Tage</p>
+<p className={`text-xl font-black ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>{plugStats.plugDays} Tage</p>
+</div>
+<div className={`${cardBg} p-5 rounded-2xl shadow-sm border`}>
+<Icon name="trending-up" size={18} className="mb-2 text-orange-500" />
+<p className={`text-[9px] font-bold uppercase tracking-wider mb-1 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Ø pro aktivem Tag</p>
+<p className={`text-xl font-black ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>{plugStats.plugAvg} kWh</p>
+</div>
+<div className={`${cardBg} p-5 rounded-2xl shadow-sm border`}>
+<Icon name="euro" size={18} className="mb-2 text-emerald-500" />
+<p className={`text-[9px] font-bold uppercase tracking-wider mb-1 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Kostenwert gesamt</p>
+<p className={`text-xl font-black ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>{(parseFloat(plugStats.plugTotal) * energyPrice).toFixed(2)} €</p>
+</div>
+</div>
+
+<div className={`${cardBg} p-6 rounded-2xl shadow-sm border`}>
+<h2 className={`text-lg font-bold mb-2 flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+<Icon name="plug" size={20} className="text-teal-500" /> Smart Plug Verbrauch im Zeitverlauf
+</h2>
+<p className={`text-xs mb-6 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Täglicher / aggregierter Smart-Plug-Verbrauch</p>
+<div className="h-[300px]">
+<ResponsiveContainer width="100%" height="100%">
+<AreaChart data={chartData}>
+<defs>
+<linearGradient id="gPlug" x1="0" y1="0" x2="0" y2="1">
+<stop offset="5%" stopColor="#2DD4BF" stopOpacity={0.4}/>
+<stop offset="95%" stopColor="#2DD4BF" stopOpacity={0}/>
+</linearGradient>
+</defs>
+<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridColor} />
+<XAxis dataKey="datum" fontSize={10} stroke={chartAxisColor} tickMargin={10} />
+<YAxis fontSize={10} stroke={chartAxisColor} unit=" kWh" tickMargin={8} />
+<Tooltip content={<CustomTooltip darkMode={darkMode} />} />
+<Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+<Area type="monotone" name="Smart Plug (kWh)" dataKey="smartPlugVerbrauch" stroke="#2DD4BF" fill="url(#gPlug)" strokeWidth={2.5} isAnimationActive={false} />
+</AreaChart>
+</ResponsiveContainer>
+</div>
+</div>
+
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<div className={`${cardBg} p-6 rounded-2xl shadow-sm border`}>
+<h2 className={`text-lg font-bold mb-6 flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+<Icon name="bar-chart-2" size={20} className={darkMode ? 'text-slate-500' : 'text-slate-400'} /> Smart Plug vs. Gesamtverbrauch
+</h2>
+<div className="h-[280px]">
+<ResponsiveContainer width="100%" height="100%">
+<ComposedChart data={chartData}>
+<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridColor} />
+<XAxis dataKey="datum" fontSize={10} stroke={chartAxisColor} tickMargin={10} />
+<YAxis yAxisId="left" fontSize={10} stroke={chartAxisColor} unit=" kWh" tickMargin={8} />
+<YAxis yAxisId="right" orientation="right" fontSize={10} stroke={chartAxisColor} unit="%" domain={[0,100]} tickMargin={8} />
+<Tooltip content={<CustomTooltip darkMode={darkMode} />} />
+<Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+<Bar yAxisId="left" name="Hausverbrauch (kWh)" dataKey="eigenverbrauch" fill={darkMode ? '#334155' : '#e2e8f0'} radius={[3,3,0,0]} isAnimationActive={false} />
+<Bar yAxisId="left" name="Smart Plug (kWh)" dataKey="smartPlugVerbrauch" fill="#2DD4BF" radius={[3,3,0,0]} isAnimationActive={false} />
+<Line yAxisId="right" type="monotone" name="Anteil (%)"
+dataKey={(d) => d.eigenverbrauch > 0.01 ? parseFloat((d.smartPlugVerbrauch / d.eigenverbrauch * 100).toFixed(1)) : null}
+stroke="#f97316" strokeWidth={2} dot={false} isAnimationActive={false} />
+</ComposedChart>
+</ResponsiveContainer>
+</div>
+</div>
+
+<div className={`${cardBg} p-6 rounded-2xl shadow-sm border flex flex-col`}>
+<h2 className={`text-lg font-bold mb-2 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>Verbrauchsverteilung</h2>
+<p className={`text-xs mb-4 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Anteil Smart Plug am Hausverbrauch im gewählten Zeitraum</p>
+<div className="h-[180px]">
+<ResponsiveContainer width="100%" height="100%">
+<PieChart>
+<Pie
+data={[
+{ name: 'Smart Plug', value: parseFloat(plugStats.sp.toFixed(2)) },
+{ name: 'Übriger Haushalt', value: parseFloat(plugStats.rest.toFixed(2)) },
+].filter(d => d.value > 0)}
+cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={4} dataKey="value" isAnimationActive={false}>
+<Cell fill="#2DD4BF" cornerRadius={4} />
+<Cell fill={darkMode ? '#334155' : '#e2e8f0'} cornerRadius={4} />
+</Pie>
+<Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v.toFixed(2)} kWh`]} />
+</PieChart>
+</ResponsiveContainer>
+</div>
+<div className="mt-4 space-y-2">
+<div className={`flex justify-between text-xs p-2.5 rounded-xl ${darkMode ? 'bg-slate-900/50' : 'bg-slate-50'}`}>
+<span className="flex items-center gap-2 font-medium">
+<div className="w-2 h-2 rounded-full bg-teal-400"></div>Smart Plug
+</span>
+<span className="font-bold">{plugStats.sp.toFixed(2)} kWh <span className={`text-[9px] font-normal ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>({plugStats.plugPct}%)</span></span>
+</div>
+<div className={`flex justify-between text-xs p-2.5 rounded-xl ${darkMode ? 'bg-slate-900/50' : 'bg-slate-50'}`}>
+<span className="flex items-center gap-2 font-medium">
+<div className={`w-2 h-2 rounded-full ${darkMode ? 'bg-slate-600' : 'bg-slate-300'}`}></div>Übriger Haushalt
+</span>
+<span className="font-bold">{plugStats.rest.toFixed(2)} kWh <span className={`text-[9px] font-normal ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>({plugStats.totalCons > 0 ? (plugStats.rest / plugStats.totalCons * 100).toFixed(1) : 0}%)</span></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+)}
+
+{/* ===== TAB: HEATMAP ===== */}
+{activeTab === 'heatmap' && (
+<div className="space-y-6 animate-in">
+<div className={`${cardBg} p-6 rounded-2xl shadow-sm border`}>
+<h2 className={`text-lg font-bold mb-2 flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+<Icon name="calendar" size={20} className="text-orange-500" /> Produktions-Kalender (tägliche Solarproduktion)
+</h2>
+<p className={`text-xs mb-6 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+Jede Zelle zeigt die Solarproduktion des Tages. Farbe = Intensität relativ zum Besttag.
+</p>
+<CalendarHeatmap rawData={rawData} darkMode={darkMode} />
+</div>
+{/* Monats-Vergleich */}
+<div className={`${cardBg} p-6 rounded-2xl shadow-sm border`}>
+<h2 className={`text-lg font-bold mb-6 flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+<Icon name="bar-chart-2" size={20} className={darkMode ? 'text-slate-500' : 'text-slate-400'} /> Monats-Vergleich
+</h2>
+<div className="h-[300px]">
+{(() => {
+const monthly = {};
+rawData.forEach(d => {
+const k = `${MONTH_NAMES[d.month-1]} ${d.year}`;
+if (!monthly[k]) monthly[k] = { datum: k, gesamtErzeugung: 0, eigenverbrauch: 0, netzimport: 0, co2: 0, sort: d.year * 100 + d.month };
+monthly[k].gesamtErzeugung += d.gesamtErzeugung;
+monthly[k].eigenverbrauch += d.eigenverbrauch;
+monthly[k].netzimport += d.netzimport;
+monthly[k].co2 += d.co2;
+});
+const md = Object.values(monthly).sort((a,b) => a.sort - b.sort);
+return (
+<ResponsiveContainer width="100%" height="100%">
+<BarChart data={md} barGap={4}>
+<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridColor} />
+<XAxis dataKey="datum" fontSize={10} stroke={chartAxisColor} tickMargin={10} />
+<YAxis fontSize={10} stroke={chartAxisColor} unit=" kWh" tickMargin={8} />
+<Tooltip content={<CustomTooltip darkMode={darkMode} />} />
+<Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+<Bar name="Solar erzeugt" dataKey="gesamtErzeugung" fill="#FBBF24" radius={[4,4,0,0]} isAnimationActive={false} />
+<Bar name="Hausverbrauch" dataKey="eigenverbrauch" fill="#3B82F6" radius={[4,4,0,0]} isAnimationActive={false} />
+<Bar name="Netzbezug" dataKey="netzimport" fill="#f43f5e" radius={[4,4,0,0]} isAnimationActive={false} />
+</BarChart>
+</ResponsiveContainer>
+);
+})()}
+</div>
+</div>
+</div>
+)}
+
+{/* ===== TAB: TABELLE ===== */}
+{activeTab === 'table' && (
+<div className={`${cardBg} p-6 rounded-2xl shadow-sm border animate-in`}>
+<div className="flex items-center justify-between mb-6">
+<h2 className={`text-lg font-bold flex items-center gap-2 ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+<Icon name="table" size={20} className={darkMode ? 'text-slate-500' : 'text-slate-400'} /> Detaildaten
+</h2>
+<span className={`text-xs px-3 py-1 rounded-full font-bold ${darkMode ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>{chartData.length} Einträge</span>
+</div>
+<div className="overflow-x-auto custom-scrollbar max-h-[520px]">
+<table className="w-full text-left text-xs whitespace-nowrap">
+<thead className={`sticky top-0 z-10 ${darkMode ? 'bg-slate-800 text-slate-400' : 'bg-white text-slate-400'}`}>
+<tr>
+{['Datum','Solar (kWh)','Haus (kWh)','Netzbezug','Einspeisung','S.→Haus','S.→Speich.','Speich.→Haus','Sp.Ladung','Sp.Entlad.','CO₂ (kg)','Autarkie'].map(h => (
+<th key={h} className="pb-3 pr-4 font-bold uppercase tracking-wider text-[9px]">{h}</th>
+))}
+</tr>
+</thead>
+<tbody className={`divide-y ${darkMode ? 'divide-slate-700' : 'divide-slate-50'}`}>
+{chartData.slice().reverse().map((d, idx) => {
+const solarDirekt = Math.max(0, d.eigenverbrauch - d.netzimport);
+const aut = d.eigenverbrauch > 0 ? (solarDirekt / d.eigenverbrauch * 100).toFixed(1) : '-';
+return (
+<tr key={idx} className={`transition-colors ${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-slate-50'}`}>
+<td className={`py-2.5 pr-4 font-semibold ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>{d.datum}</td>
+<td className="py-2.5 pr-4 text-orange-600 font-bold">{(d.gesamtErzeugung||0).toFixed(2)}</td>
+<td className="py-2.5 pr-4 text-blue-600 font-bold">{(d.eigenverbrauch||0).toFixed(2)}</td>
+<td className="py-2.5 pr-4 text-rose-500 font-bold">{(d.netzimport||0).toFixed(2)}</td>
+<td className="py-2.5 pr-4 text-violet-500 font-bold">{(d.einspeisung||0).toFixed(2)}</td>
+<td className={`py-2.5 pr-4 font-medium ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>{(d.solarZuHaus||0).toFixed(2)}</td>
+<td className={`py-2.5 pr-4 font-medium ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>{(d.solarZuSpeicher||0).toFixed(2)}</td>
+<td className={`py-2.5 pr-4 font-medium ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>{(d.speicherZuHaus||0).toFixed(2)}</td>
+<td className="py-2.5 pr-4 text-emerald-600 font-bold">{(d.speicherLadung||0).toFixed(2)}</td>
+<td className="py-2.5 pr-4 text-orange-500 font-bold">{(d.speicherEntladung||0).toFixed(2)}</td>
+<td className="py-2.5 pr-4 text-green-500 font-bold">{(d.co2||0).toFixed(2)}</td>
+<td className={`py-2.5 font-bold ${parseFloat(aut) >= 50 ? 'text-emerald-500' : (darkMode ? 'text-slate-400' : 'text-slate-500')}`}>{aut !== '-' ? `${aut}%` : '-'}</td>
+</tr>
+);
+})}
+</tbody>
+</table>
+</div>
+</div>
+)}
+
+{/* Footer */}
+<footer className={`mt-8 pt-6 border-t text-center text-[10px] ${darkMode ? 'border-slate-800 text-slate-600' : 'border-slate-100 text-slate-300'}`}>
+ANKER SOLIX Analytics · Alle Daten bleiben lokal in Ihrem Browser · Keine Daten werden übertragen
+</footer>
+</>
+)}
+</div>
+</div>
+);
+};
+
+const rootElement = document.getElementById('root');
+const root = ReactDOM.createRoot(rootElement);
+root.render(<App />);
+</script>
+</body>
+</html>
