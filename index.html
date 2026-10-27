@@ -1,229 +1,567 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Moderne Website</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background-color: #f4f4f4;
-      color: #333;
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0a10" />
+<title>Alexander Rink – Kleine Apps für den Browser</title>
+<meta name="description" content="Spiele, Sport-Tools und Grafik-Apps. Jede App ist eine einzelne Datei und läuft direkt im Browser. Deine Daten bleiben bei dir." />
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --surface-2: #ececf1;
+    --text: #1d1d1f;
+    --muted: #6e6e73;
+    --line: rgba(0,0,0,.09);
+    --accent: #3E12E3;
+    --accent-ink: #ffffff;
+    --accent-soft: rgba(62,18,227,.10);
+    --header: rgba(245,245,247,.74);
+    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 32px -12px rgba(30,20,90,.18);
+    --radius: 26px;
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #0a0a10;
+      --surface: #14141d;
+      --surface-2: #1d1d2a;
+      --text: #f5f5f7;
+      --muted: #9b9bae;
+      --line: rgba(255,255,255,.09);
+      --accent: #7b5cff;
+      --accent-ink: #ffffff;
+      --accent-soft: rgba(123,92,255,.18);
+      --header: rgba(10,10,16,.7);
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 16px 40px -16px rgba(0,0,0,.7);
     }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0a0a10;
+    --surface: #14141d;
+    --surface-2: #1d1d2a;
+    --text: #f5f5f7;
+    --muted: #9b9bae;
+    --line: rgba(255,255,255,.09);
+    --accent: #7b5cff;
+    --accent-ink: #ffffff;
+    --accent-soft: rgba(123,92,255,.18);
+    --header: rgba(10,10,16,.7);
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 16px 40px -16px rgba(0,0,0,.7);
+  }
 
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 84px; -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+  .wrap { width: min(1120px, 100% - 2.5rem); margin-inline: auto; }
 
-    header {
-      background-color: #2c3e50;
-      color: white;
-      padding: 1rem 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
+  /* ---------- Header ---------- */
+  header {
+    position: sticky; top: 0; z-index: 50;
+    padding-top: env(safe-area-inset-top, 0px);
+    background: var(--header);
+    -webkit-backdrop-filter: saturate(180%) blur(22px);
+    backdrop-filter: saturate(180%) blur(22px);
+    border-bottom: 1px solid var(--line);
+  }
+  .bar { display: flex; align-items: center; justify-content: space-between; height: 60px; gap: 1rem; }
+  .brand { font-weight: 650; letter-spacing: -.02em; font-size: 1.05rem; display: flex; align-items: center; gap: .6rem; }
+  .brand svg { width: 26px; height: 26px; }
 
+  nav { display: flex; align-items: center; gap: .25rem; }
+  nav > a, .dropbtn {
+    background: none; border: 0; cursor: pointer;
+    padding: .5rem .8rem; border-radius: 999px;
+    font-size: .95rem; color: var(--muted);
+    transition: color .2s, background-color .2s;
+  }
+  nav > a:hover, .dropbtn:hover, .dropdown.open .dropbtn { color: var(--text); background: var(--accent-soft); }
+  .dropbtn .chev { display: inline-block; margin-left: .25rem; transition: transform .25s; font-size: .7em; }
+  .dropdown.open .chev { transform: rotate(180deg); }
+
+  .dropdown { position: relative; }
+  .menu {
+    position: absolute; top: 100%; left: 50%; transform: translateX(-50%) translateY(-4px);
+    padding-top: 10px;           /* unsichtbare Brücke: Menü bleibt beim Hovern offen */
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transition: opacity .2s, transform .2s, visibility .2s;
+  }
+  .panel {
+    min-width: 200px; padding: .4rem;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 18px; box-shadow: var(--shadow);
+  }
+  .panel a { display: block; padding: .6rem .8rem; border-radius: 12px; font-size: .95rem; }
+  .panel a:hover { background: var(--accent-soft); }
+  .dropdown.open .menu { opacity: 1; visibility: visible; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+  @media (hover: hover) and (min-width: 821px) {
+    .dropdown:hover .menu, .dropdown:focus-within .menu { opacity: 1; visibility: visible; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+    .dropdown:hover .dropbtn { color: var(--text); background: var(--accent-soft); }
+  }
+
+  .tools { display: flex; align-items: center; gap: .4rem; }
+  .icon-btn {
+    width: 38px; height: 38px; display: grid; place-items: center;
+    background: none; border: 1px solid var(--line); border-radius: 50%; cursor: pointer; color: var(--muted);
+    transition: color .2s, background-color .2s;
+  }
+  .icon-btn:hover { color: var(--text); background: var(--accent-soft); }
+  .icon-btn svg { width: 18px; height: 18px; }
+  #burger { display: none; }
+
+  @media (max-width: 820px) {
+    #burger { display: grid; }
     nav {
-      display: flex;
-      align-items: center;
-    }
-
-    nav a {
-      color: white;
-      text-decoration: none;
-      margin-left: 1.5rem;
-      font-size: 16px;
-    }
-
-    nav a:hover {
-      text-decoration: underline;
-    }
-
-    /* Dropdown CSS Start */
-    .dropdown {
-      position: relative;
-      display: inline-block;
-      margin-left: 1.5rem;
-      /* Gibt dem Container etwas unsichtbares "Fleisch", damit der Hover-Bereich größer ist */
-      padding-bottom: 10px; 
-    }
-
-    .dropbtn {
-      background-color: transparent;
-      color: white;
-      font-size: 16px;
-      border: none;
-      cursor: pointer;
-      font-family: 'Segoe UI', sans-serif;
-      padding: 0;
-      /* Verschiebt den Button leicht nach unten, um das padding-bottom auszugleichen */
-      margin-top: 10px; 
-    }
-
-    .dropdown:hover .dropbtn {
-      text-decoration: underline;
-    }
-
-    .dropdown-content {
+      position: absolute; left: 0; right: 0; top: 100%;
+      flex-direction: column; align-items: stretch; gap: 0;
+      padding: .5rem 1.25rem 1rem;
+      background: var(--surface); border-bottom: 1px solid var(--line);
+      max-height: calc(100dvh - 70px); overflow-y: auto;
       display: none;
-      position: absolute;
-      background-color: #ffffff;
-      min-width: 180px;
-      box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-      z-index: 1;
-      border-radius: 5px;
-      overflow: hidden;
-      top: 100%; /* HIER WAR DER FEHLER: 100% statt 150% schließt die Lücke nahtlos */
-      left: 0;
     }
+    nav.open { display: flex; }
+    nav > a, .dropbtn { text-align: left; width: 100%; padding: .85rem .4rem; border-radius: 12px; font-size: 1.05rem; color: var(--text); }
+    .dropbtn { display: flex; justify-content: space-between; align-items: center; }
+    .menu { position: static; transform: none; padding: 0; opacity: 1; visibility: visible; pointer-events: auto; display: none; }
+    .dropdown.open .menu { display: block; transform: none; }
+    .panel { box-shadow: none; border: 0; background: var(--surface-2); margin: 0 0 .5rem; }
+  }
 
-    .dropdown-content a {
-      color: #333;
-      padding: 12px 16px;
-      text-decoration: none;
-      display: block;
-      margin-left: 0;
-      font-size: 15px;
-      transition: background-color 0.2s;
-    }
+  /* ---------- Hero ---------- */
+  .hero { position: relative; overflow: hidden; isolation: isolate; }
+  .hero .wrap { position: relative; padding: clamp(4rem, 11vw, 8.5rem) 0 clamp(3.5rem, 8vw, 6.5rem); }
+  .hero h1 {
+    margin: 0; max-width: 11ch;
+    font-size: clamp(2.8rem, 8.2vw, 6.2rem);
+    line-height: .98; letter-spacing: -.045em; font-weight: 700;
+  }
+  .hero p.lead { margin: 1.6rem 0 0; max-width: 34rem; font-size: clamp(1.05rem, 2.2vw, 1.3rem); color: var(--muted); line-height: 1.45; }
+  .cta { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 2.2rem; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: .85rem 1.5rem; border-radius: 999px; font-weight: 600; font-size: 1rem;
+    border: 1px solid transparent; transition: transform .15s, background-color .2s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); }
+  .btn.primary:hover { filter: brightness(1.1); }
+  .btn.ghost { border-color: var(--line); background: var(--surface); }
+  .btn.ghost:hover { background: var(--accent-soft); }
 
-    .dropdown-content a:hover {
-      background-color: #f1f1f1;
-      text-decoration: none;
-    }
+  .trace {
+    position: absolute; z-index: -1; right: -6%; top: 50%; transform: translateY(-50%);
+    width: min(860px, 96vw); height: auto; pointer-events: none;
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 38%);
+            mask-image: linear-gradient(to right, transparent 0%, #000 38%);
+  }
+  @media (max-width: 820px) {
+    .trace { right: -30%; width: 150vw; top: 60%; opacity: .55;
+      -webkit-mask-image: none; mask-image: none; }
+  }
+  .trace .grid line { stroke: var(--line); stroke-width: 1; }
+  .trace .t { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 3.2s cubic-bezier(.6,.05,.2,1) forwards; }
+  .trace .t1 { stroke: var(--accent); stroke-width: 5; animation-delay: .2s; filter: drop-shadow(0 0 10px var(--accent)); }
+  .trace .t2 { stroke: var(--text); stroke-opacity: .55; stroke-width: 3; animation-delay: .9s; }
+  .trace .t3 { stroke: var(--accent); stroke-opacity: .45; stroke-width: 3; animation-delay: 1.5s; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
 
-    .dropdown:hover .dropdown-content {
-      display: block;
-    }
-    /* Dropdown CSS Ende */
+  /* ---------- Apps ---------- */
+  section.apps { padding: 1rem 0 clamp(3rem, 7vw, 5rem); }
+  .head { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1.6rem; }
+  .head h2 { margin: 0; font-size: clamp(1.8rem, 4.4vw, 2.8rem); letter-spacing: -.035em; line-height: 1.05; }
+  .head p { margin: 0; color: var(--muted); max-width: 22rem; font-size: .98rem; }
 
-    .hero {
-      background: linear-gradient(to right, #3498db, #8e44ad);
-      color: white;
-      padding: 4rem 2rem;
-      text-align: center;
-    }
+  .bento { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+  .tile {
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: column; justify-content: space-between;
+    grid-column: span 2; min-height: 230px; padding: 1.5rem;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    transition: transform .25s cubic-bezier(.2,.8,.2,1), border-color .25s;
+  }
+  .tile:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+  .tile:active { transform: scale(.985); }
+  .tile.w4 { grid-column: span 4; min-height: 300px; }
+  .tile.w3 { grid-column: span 3; }
+  .tile .tag { font-size: .85rem; color: var(--muted); }
+  .tile h3 { margin: .15rem 0 .3rem; font-size: 1.45rem; letter-spacing: -.025em; line-height: 1.1; }
+  .tile.w4 h3 { font-size: 2rem; }
+  .tile p { margin: 0; color: var(--muted); font-size: .95rem; max-width: 24rem; }
+  .tile .art { color: var(--accent); }
+  .tile .art svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .tile .art .soft { color: var(--muted); }
+  .tile.w4 .art { position: absolute; right: 0; bottom: 0; width: 62%; height: 100%; display: flex; align-items: center; }
+  .tile .copy { position: relative; z-index: 1; }
 
-    .hero h1 {
-      font-size: 3rem;
-      margin-bottom: 1rem;
-    }
+  @media (max-width: 820px) {
+    .bento { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .tile, .tile.w3 { grid-column: span 1; min-height: 210px; padding: 1.15rem; }
+    .tile.w4 { grid-column: span 2; min-height: 260px; }
+    .tile.w4 .art { width: 80%; opacity: .55; }
+    .tile h3 { font-size: 1.2rem; }
+    .head { flex-direction: column; align-items: start; }
+  }
+  @media (max-width: 440px) {
+    .tile, .tile.w3 { grid-column: span 2; min-height: 190px; }
+  }
 
-    .features {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      padding: 2rem;
-      gap: 2rem;
-    }
+  /* ---------- Prinzipien ---------- */
+  .values { padding: clamp(2.5rem, 6vw, 4.5rem) 0; border-top: 1px solid var(--line); }
+  .values .cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.5rem; }
+  .values h3 { margin: 0 0 .5rem; font-size: 1.25rem; letter-spacing: -.02em; }
+  .values p { margin: 0; color: var(--muted); max-width: 22rem; }
+  @media (max-width: 820px) { .values .cols { grid-template-columns: 1fr; gap: 1.8rem; } }
 
-    .feature {
-      background-color: white;
-      padding: 1.5rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      width: 300px;
-      text-align: center;
-    }
+  /* ---------- Footer ---------- */
+  footer { border-top: 1px solid var(--line); padding: 1.6rem 0 2rem; color: var(--muted); font-size: .9rem; }
+  footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1.5rem; }
 
-    footer {
-      background-color: #2c3e50;
-      color: white;
-      text-align: center;
-      padding: 1rem;
-      margin-top: 2rem;
-    }
-
-    @media (max-width: 768px) {
-      header {
-        flex-direction: column;
-        gap: 1rem;
-      }
-      nav {
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 10px;
-      }
-      .dropdown, nav a {
-        margin-left: 0.5rem;
-        margin-right: 0.5rem;
-        padding-bottom: 0; /* Reset für Mobile */
-      }
-      .dropbtn {
-        margin-top: 0; /* Reset für Mobile */
-      }
-      .features {
-        flex-direction: column;
-        align-items: center;
-      }
-      .hero h1 {
-        font-size: 2rem;
-      }
-    }
-  </style>
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .trace .t { animation: none; stroke-dashoffset: 0; }
+    * { transition: none !important; }
+  }
+</style>
 </head>
 <body>
-  <header>
-    <div><strong>MeineWebsite</strong></div>
-    <nav>
+
+<header>
+  <div class="wrap bar">
+    <a class="brand" href="index.html" aria-label="Startseite">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="var(--accent)"/><path d="M6 23c4-1 5-9 9-9s3 7 6 7 3-10 5-10" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      MeineWebsite
+    </a>
+
+    <nav id="nav" aria-label="Hauptmenü">
       <a href="index.html">Start</a>
 
       <div class="dropdown">
-        <button class="dropbtn">Grafik ▾</button>
-        <div class="dropdown-content">
-          <a href="https://lenticular.w3spaces.com/lenticulargif.html">Lenticular GIF</a>
+        <button class="dropbtn" aria-expanded="false" aria-haspopup="true">Grafik <span class="chev">▾</span></button>
+        <div class="menu"><div class="panel">
+          <a href="https://elex89.github.io/elex/StereoGen.html">Stereobild-Generator</a>
           <a href="https://lenticular.w3spaces.com/lenticularpitch.html">Lenticular Pitch</a>
-        </div>
+          <a href="https://lenticular.w3spaces.com/lenticularpitch.html">Lenticular Pitch</a>
+        </div></div>
       </div>
 
       <div class="dropdown">
-        <button class="dropbtn">Games ▾</button>
-        <div class="dropdown-content">
-          <a href="https://lenticular.w3spaces.com/sudoko.html">Sudoku</a>
+        <button class="dropbtn" aria-expanded="false" aria-haspopup="true">Games <span class="chev">▾</span></button>
+        <div class="menu"><div class="panel">
+          <a href="https://elex89.github.io/elex/Rueckwaerts.html">Rückwärts</a>
           <a href="https://lenticular.w3spaces.com/puzzle.html">Puzzle</a>
           <a href="https://lenticular.w3spaces.com/Worte.html">Wortstufen</a>
-        </div>
+        </div></div>
       </div>
 
       <div class="dropdown">
-        <button class="dropbtn">Produktiv ▾</button>
-        <div class="dropdown-content">
+        <button class="dropbtn" aria-expanded="false" aria-haspopup="true">Produktiv <span class="chev">▾</span></button>
+        <div class="menu"><div class="panel">
           <a href="https://lenticular.w3spaces.com/AnkerROI.html">Anker ROI</a>
-        </div>
+        </div></div>
       </div>
 
       <div class="dropdown">
-        <button class="dropbtn">Sport ▾</button>
-        <div class="dropdown-content">
+        <button class="dropbtn" aria-expanded="false" aria-haspopup="true">Sport <span class="chev">▾</span></button>
+        <div class="menu"><div class="panel">
           <a href="https://lenticular.w3spaces.com/flyover.html">Flyover</a>
           <a href="https://elex89.github.io/elex/spuren.html">Spuren</a>
           <a href="https://lenticular.w3spaces.com/Run.html">Run</a>
-        </div>
+        </div></div>
       </div>
     </nav>
-  </header>
 
+    <div class="tools">
+      <button class="icon-btn" id="theme" aria-label="Hell/Dunkel wechseln" title="Hell/Dunkel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+      <button class="icon-btn" id="burger" aria-label="Menü öffnen" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
   <section class="hero">
-    <h1>Willkommen auf meiner modernen Website</h1>
-    <p>Entdecke innovative Lösungen für dein digitales Leben.</p>
+    <svg class="trace" viewBox="0 0 800 600" aria-hidden="true">
+      <g class="grid">
+        <line x1="0" y1="100" x2="800" y2="100"/><line x1="0" y1="250" x2="800" y2="250"/>
+        <line x1="0" y1="400" x2="800" y2="400"/><line x1="0" y1="550" x2="800" y2="550"/>
+        <line x1="120" y1="0" x2="120" y2="600"/><line x1="320" y1="0" x2="320" y2="600"/>
+        <line x1="520" y1="0" x2="520" y2="600"/><line x1="720" y1="0" x2="720" y2="600"/>
+      </g>
+      <path class="t t3" pathLength="1" d="M30 470 C110 430 150 330 240 360 S 360 470 430 400 S 560 330 640 380 S 760 300 780 210"/>
+      <path class="t t2" pathLength="1" d="M60 540 C150 500 200 400 290 420 S 400 540 480 470 S 560 250 650 270 S 740 140 770 90"/>
+      <path class="t t1" pathLength="1" d="M20 380 C100 340 140 230 230 250 S 330 400 420 330 S 480 130 580 150 S 690 250 730 120 S 780 60 790 40"/>
+    </svg>
+
+    <div class="wrap">
+      <h1>Kleine Apps für den Browser.</h1>
+      <p class="lead">Spiele, Sport-Tools und Grafik. Jede App ist eine einzelne Datei, läuft direkt auf deinem Gerät und braucht kein Konto.</p>
+      <div class="cta">
+        <a class="btn primary" href="#apps">Apps ansehen</a>
+        <a class="btn ghost" href="https://elex89.github.io/elex/spuren.html">Spuren öffnen</a>
+      </div>
+    </div>
   </section>
 
-  <section class="features">
-    <div class="feature">
-      <h2>Responsive Design</h2>
-      <p>Optimiert für alle Geräte – vom Smartphone bis zum Desktop.</p>
-    </div>
-    <div class="feature">
-      <h2>Schnelle Ladezeiten</h2>
-      <p>Unsere Seiten sind blitzschnell und effizient.</p>
-    </div>
-    <div class="feature">
-      <h2>Benutzerfreundlich und Datenkomform</h2>
-      <p>Intuitive Navigation und klare Inhalte für ein besseres Erlebnis. Es wird nichts gespeichert, alle Daten bleiben bei dir.</p>
+  <section class="apps" id="apps">
+    <div class="wrap">
+      <div class="head">
+        <h2>Alle Apps</h2>
+        <p>Öffnen, benutzen, fertig. Am besten auf dem iPhone in Safari oder am Desktop.</p>
+      </div>
+
+      <div class="bento">
+
+        <!-- Spuren -->
+        <a class="tile w4" href="https://elex89.github.io/elex/spuren.html">
+          <div class="copy">
+            <span class="tag">Sport</span>
+            <h3>Spuren</h3>
+            <p>Alle gelaufenen und gefahrenen Wege auf einer Karte. Mit Statistiken, Bestzeiten und Animation deiner Strecken.</p>
+          </div>
+          <div class="art" aria-hidden="true">
+            <svg viewBox="0 0 400 240" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 190 C60 170 80 110 140 125 S 200 190 250 150 S 300 60 350 80 S 385 40 392 20" stroke="currentColor" stroke-width="4"/>
+              <path d="M30 220 C80 200 110 150 160 160 S 230 215 280 190 S 330 130 380 140" stroke="currentColor" stroke-opacity=".45" stroke-width="3"/>
+              <path d="M0 120 C50 100 70 60 120 70 S 190 120 230 95" stroke="currentColor" stroke-opacity=".25" stroke-width="3"/>
+            </svg>
+          </div>
+        </a>
+
+        <!-- Flyover -->
+        <a class="tile" href="https://lenticular.w3spaces.com/flyover.html">
+          <div class="copy">
+            <span class="tag">Sport</span>
+            <h3>Flyover</h3>
+            <p>GPX hochladen, 3D-Kameraflug als Video erzeugen.</p>
+          </div>
+          <div class="art" aria-hidden="true">
+            <svg viewBox="0 0 200 70" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M0 62 L30 38 L50 52 L88 14 L118 46 L140 30 L200 64" stroke-opacity=".5"/>
+              <path d="M0 66 C40 50 70 60 100 40 S 160 30 200 10"/>
+            </svg>
+          </div>
+        </a>
+
+        <!-- Run -->
+        <a class="tile" href="https://lenticular.w3spaces.com/Run.html">
+          <div class="copy">
+            <span class="tag">Sport</span>
+            <h3>Run</h3>
+            <p>Dein Lauftraining im Blick.</p>
+          </div>
+          <div class="art" aria-hidden="true">
+            <svg viewBox="0 0 200 60" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M0 34 H48 L60 12 L78 52 L92 22 L102 34 H200"/>
+            </svg>
+          </div>
+        </a>
+
+        <!-- Anker ROI -->
+        <a class="tile w4" href="https://lenticular.w3spaces.com/AnkerROI.html" style="min-height:230px">
+          <div class="copy">
+            <span class="tag">Produktiv</span>
+            <h3>Anker ROI</h3>
+            <p>Wann sich deine Solar- und Speicheranlage bezahlt macht.</p>
+          </div>
+          <div class="art" aria-hidden="true">
+            <svg viewBox="0 0 400 200" fill="currentColor">
+              <rect x="20"  y="150" width="34" height="40" rx="8" fill-opacity=".18"/>
+              <rect x="70"  y="130" width="34" height="60" rx="8" fill-opacity=".25"/>
+              <rect x="120" y="115" width="34" height="75" rx="8" fill-opacity=".33"/>
+              <rect x="170" y="95"  width="34" height="95" rx="8" fill-opacity=".45"/>
+              <rect x="220" y="72"  width="34" height="118" rx="8" fill-opacity=".6"/>
+              <rect x="270" y="48"  width="34" height="142" rx="8" fill-opacity=".8"/>
+              <rect x="320" y="20"  width="34" height="170" rx="8"/>
+            </svg>
+          </div>
+        </a>
+
+        <!-- Sudoku -->
+        <a class="tile" href="https://lenticular.w3spaces.com/sudoko.html">
+          <div class="copy">
+            <span class="tag">Games</span>
+            <h3>Sudoku</h3>
+            <p>Das klassische Zahlenrätsel.</p>
+          </div>
+          <div class="art" aria-hidden="true">
+            <svg viewBox="0 0 90 90" width="64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="width:64px">
+              <rect x="2" y="2" width="86" height="86" rx="10"/>
+              <path d="M31 2v86M59 2v86M2 31h86M2 59h86" stroke-opacity=".5"/>
+            </svg>
+          </div>
+        </a>
+
+        <!-- Puzzle -->
+        <a class="tile" href="https://lenticular.w3spaces.com/puzzle.html">
+          <div class="copy">
+            <span class="tag">Games</span>
+            <h3>Puzzle</h3>
+            <p>Teile verschieben, bis das Bild stimmt.</p>
+          </div>
+          <div class="art" aria-hidden="true">
+            <svg viewBox="0 0 90 60" style="width:96px" fill="currentColor">
+              <rect x="2" y="2" width="40" height="26" rx="7" fill-opacity=".9"/>
+              <rect x="46" y="2" width="40" height="26" rx="7" fill-opacity=".4"/>
+              <rect x="2" y="32" width="40" height="26" rx="7" fill-opacity=".4"/>
+              <rect x="46" y="32" width="40" height="26" rx="7" fill-opacity=".15"/>
+            </svg>
+          </div>
+        </a>
+
+        <!-- Wortstufen -->
+        <a class="tile" href="https://lenticular.w3spaces.com/Worte.html">
+          <div class="copy">
+            <span class="tag">Games</span>
+            <h3>Wortstufen</h3>
+            <p>Worträtsel mit 3 bis 8 Buchstaben.</p>
+          </div>
+          <div class="art" aria-hidden="true">
+            <svg viewBox="0 0 150 30" style="width:150px" fill="currentColor">
+              <rect x="0" y="0" width="26" height="26" rx="7" fill-opacity=".9"/>
+              <rect x="31" y="0" width="26" height="26" rx="7" fill-opacity=".35"/>
+              <rect x="62" y="0" width="26" height="26" rx="7" fill-opacity=".9"/>
+              <rect x="93" y="0" width="26" height="26" rx="7" fill-opacity=".15"/>
+              <rect x="124" y="0" width="26" height="26" rx="7" fill-opacity=".35"/>
+            </svg>
+          </div>
+        </a>
+
+        <!-- Lenticular GIF -->
+        <a class="tile w3" href="https://lenticular.w3spaces.com/lenticulargif.html">
+          <div class="copy">
+            <span class="tag">Grafik</span>
+            <h3>Lenticular GIF</h3>
+            <p>Wackelbilder aus Animationen.</p>
+          </div>
+          <div class="art" aria-hidden="true">
+            <svg viewBox="0 0 300 36" preserveAspectRatio="none" style="height:36px" fill="currentColor">
+              <g fill-opacity=".85">
+                <rect x="0" width="6" height="36"/><rect x="24" width="6" height="36"/><rect x="48" width="6" height="36"/><rect x="72" width="6" height="36"/><rect x="96" width="6" height="36"/><rect x="120" width="6" height="36"/><rect x="144" width="6" height="36"/><rect x="168" width="6" height="36"/><rect x="192" width="6" height="36"/><rect x="216" width="6" height="36"/><rect x="240" width="6" height="36"/><rect x="264" width="6" height="36"/><rect x="288" width="6" height="36"/>
+              </g>
+              <g fill-opacity=".3">
+                <rect x="10" width="6" height="36"/><rect x="34" width="6" height="36"/><rect x="58" width="6" height="36"/><rect x="82" width="6" height="36"/><rect x="106" width="6" height="36"/><rect x="130" width="6" height="36"/><rect x="154" width="6" height="36"/><rect x="178" width="6" height="36"/><rect x="202" width="6" height="36"/><rect x="226" width="6" height="36"/><rect x="250" width="6" height="36"/><rect x="274" width="6" height="36"/>
+              </g>
+            </svg>
+          </div>
+        </a>
+
+        <!-- Lenticular Pitch -->
+        <a class="tile w3" href="https://lenticular.w3spaces.com/lenticularpitch.html">
+          <div class="copy">
+            <span class="tag">Grafik</span>
+            <h3>Lenticular Pitch</h3>
+            <p>Raster und Linsenabstand passend berechnen.</p>
+          </div>
+          <div class="art" aria-hidden="true">
+            <svg viewBox="0 0 300 36" preserveAspectRatio="none" style="height:36px" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+              <path d="M2 8v20M62 8v20M122 8v20M182 8v20M242 8v20" stroke-opacity=".5"/>
+              <path d="M2 18H62M62 18H122M122 18H182M182 18H242" stroke-opacity=".9"/>
+            </svg>
+          </div>
+        </a>
+
+      </div>
     </div>
   </section>
 
-  <footer>
-    &copy; 2026 Alexander Rink. Alle Rechte vorbehalten.
-  </footer>
+  <section class="values">
+    <div class="wrap cols">
+      <div>
+        <h3>Läuft überall</h3>
+        <p>iPhone, Mac, Windows: ein Browser reicht. Nichts zu installieren, nichts zu aktualisieren.</p>
+      </div>
+      <div>
+        <h3>Eine Datei pro App</h3>
+        <p>Keine Bibliotheken, kein Build. Das macht die Apps schnell und leicht zu sichern.</p>
+      </div>
+      <div>
+        <h3>Deine Daten bleiben bei dir</h3>
+        <p>Keine Konten, kein Tracking. Was du eingibst, bleibt auf deinem Gerät.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>&copy; 2026 Alexander Rink. Alle Rechte vorbehalten.</span>
+    <span>Gebaut für iPhone und Desktop.</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var nav = document.getElementById('nav');
+  var burger = document.getElementById('burger');
+  var drops = Array.prototype.slice.call(document.querySelectorAll('.dropdown'));
+
+  function closeDrops(except) {
+    drops.forEach(function (d) {
+      if (d !== except) {
+        d.classList.remove('open');
+        d.querySelector('.dropbtn').setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+
+  drops.forEach(function (d) {
+    var btn = d.querySelector('.dropbtn');
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var open = !d.classList.contains('open');
+      closeDrops(d);
+      d.classList.toggle('open', open);
+      btn.setAttribute('aria-expanded', String(open));
+    });
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('.dropdown')) closeDrops(null);
+    if (!e.target.closest('header')) { nav.classList.remove('open'); burger.setAttribute('aria-expanded', 'false'); }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { closeDrops(null); nav.classList.remove('open'); burger.setAttribute('aria-expanded', 'false'); }
+  });
+
+  burger.addEventListener('click', function (e) {
+    e.stopPropagation();
+    var open = nav.classList.toggle('open');
+    burger.setAttribute('aria-expanded', String(open));
+  });
+
+  // Hell/Dunkel: folgt dem System, Umschalter merkt sich die Wahl nur auf diesem Gerät
+  var saved = null;
+  try { saved = localStorage.getItem('theme'); } catch (e) {}
+  if (saved === 'light' || saved === 'dark') root.setAttribute('data-theme', saved);
+
+  document.getElementById('theme').addEventListener('click', function () {
+    var current = root.getAttribute('data-theme') ||
+      (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    var next = current === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+  });
+})();
+</script>
 </body>
 </html>
