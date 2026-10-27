@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>iPhone Gyro Snake (Kalibriert)</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        #score-board {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        #game-container {
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        canvas {
+            background-color: #111;
+            display: block;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #007AFF;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            font-size: 18px;
+            cursor: pointer;
+            border-radius: 8px;
+            font-weight: bold;
+            margin-top: 15px;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #game-over-screen { display: none; }
+
+        .instructions {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #888;
+            text-align: center;
+            max-width: 80%;
+        }
+
+        .option-label {
+            font-size: 13px;
+            color: #999;
+            margin-top: 18px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .option-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .option-btn {
+            background-color: #2a2a2a;
+            border: 2px solid #333;
+            color: #ccc;
+            padding: 10px 16px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 8px;
+            margin-top: 0;
+            transition: all 0.15s ease;
+        }
+
+        .option-btn.active {
+            background-color: #007AFF;
+            border-color: #007AFF;
+            color: #fff;
+        }
+
+        .start-btn {
+            margin-top: 25px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="score-board">Score: <span id="score">0</span></div>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="start-screen" class="overlay">
+            <h2>Sensor-Steuerung</h2>
+            <p>Halte dein iPhone in einer <strong>bequemen Position</strong>. Wähle deine Einstellungen und tippe auf Start, um die Steuerung zu kalibrieren.</p>
+
+            <div class="option-label">Geschwindigkeit</div>
+            <div class="option-group" id="speed-group">
+                <button class="option-btn" data-speed="langsam" onclick="selectOption('speed', 'langsam')">Langsam</button>
+                <button class="option-btn active" data-speed="schnell" onclick="selectOption('speed', 'schnell')">Schnell</button>
+                <button class="option-btn" data-speed="steigend" onclick="selectOption('speed', 'steigend')">Steigend</button>
+            </div>
+
+            <div class="option-label">Version</div>
+            <div class="option-group" id="version-group">
+                <button class="option-btn active" data-version="klassisch" onclick="selectOption('version', 'klassisch')">Klassisch</button>
+                <button class="option-btn" data-version="modern" onclick="selectOption('version', 'modern')">Modern</button>
+            </div>
+
+            <button class="start-btn" onclick="requestPermission()">Kalibrieren & Starten</button>
+        </div>
+
+        <div id="game-over-screen" class="overlay">
+            <h2 style="color: #ff4a4a;">Game Over</h2>
+            <button style="background-color: #4CAF50;" onclick="resetGame()">Nochmal spielen</button>
+        </div>
+    </div>
+
+    <div class="instructions">Kippe das iPhone aus deiner Startposition heraus, um zu lenken.</div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const scoreElement = document.getElementById("score");
+        const gameOverScreen = document.getElementById("game-over-screen");
+        const startScreen = document.getElementById("start-screen");
+
+        const gridSize = 20;
+        const width = Math.floor((window.innerWidth * 0.9) / gridSize) * gridSize;
+        const height = Math.floor((window.innerHeight * 0.6) / gridSize) * gridSize;
+        canvas.width = width;
+        canvas.height = height;
+
+        let snake, dx, dy, food, score, gameInterval;
+        let changingDirection = false;
+
+        // Empfindlichkeit (in Grad), ab wann die Schlange reagiert
+        const threshold = 10;
+
+        // Variablen für die Nullstellung (Kalibrierung)
+        let baseBeta = null;
+        let baseGamma = null;
+        let isCalibrated = false;
+
+        // Vorauswahl-Einstellungen
+        let selectedSpeed = 'schnell';   // langsam | schnell | steigend
+        let selectedVersion = 'klassisch'; // klassisch | modern
+
+        const SPEED_SETTINGS = {
+            langsam: { start: 200, min: 200, step: 0 },
+            schnell: { start: 90, min: 90, step: 0 },
+            steigend: { start: 170, min: 70, step: 6 } // step: ms schneller pro gegessenem Essen
+        };
+
+        let currentIntervalMs = SPEED_SETTINGS.schnell.start;
+
+        function selectOption(group, value) {
+            if (group === 'speed') {
+                selectedSpeed = value;
+                document.querySelectorAll('#speed-group .option-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.speed === value);
+                });
+            } else if (group === 'version') {
+                selectedVersion = value;
+                document.querySelectorAll('#version-group .option-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.version === value);
+                });
+            }
+        }
+
+        function requestPermission() {
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(response => {
+                        if (response === 'granted') {
+                            // Ersten Event abfangen für die Kalibrierung
+                            window.addEventListener('deviceorientation', calibrateSensors, { once: true });
+                        } else {
+                            alert("Sensoren wurden abgelehnt.");
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                window.addEventListener('deviceorientation', calibrateSensors, { once: true });
+            }
+        }
+
+        function calibrateSensors(event) {
+            // Speichere die aktuelle Haltung des iPhones als Nullpunkt ("genullt")
+            baseBeta = event.beta;
+            baseGamma = event.gamma;
+            isCalibrated = true;
+
+            // Jetzt dauerhaften Listener für das Spiel aktivieren
+            window.addEventListener('deviceorientation', handleOrientation);
+
+            startScreen.style.display = "none";
+            resetGame();
+        }
+
+        function resetGame() {
+            snake = [
+                {x: gridSize * 3, y: gridSize * 3},
+                {x: gridSize * 2, y: gridSize * 3},
+                {x: gridSize * 1, y: gridSize * 3}
+            ];
+            dx = gridSize;
+            dy = 0;
+            score = 0;
+            scoreElement.innerText = score;
+            gameOverScreen.style.display = "none";
+            createFood();
+
+            currentIntervalMs = SPEED_SETTINGS[selectedSpeed].start;
+
+            if (gameInterval) clearInterval(gameInterval);
+            gameInterval = setInterval(main, currentIntervalMs);
+        }
+
+        function restartIntervalWithSpeed(newMs) {
+            currentIntervalMs = newMs;
+            clearInterval(gameInterval);
+            gameInterval = setInterval(main, currentIntervalMs);
+        }
+
+        function main() {
+            if (hasGameEnded()) {
+                gameOverScreen.style.display = "flex";
+                clearInterval(gameInterval);
+                return;
+            }
+
+            changingDirection = false;
+            clearCanvas();
+            drawFood();
+            moveSnake();
+            drawSnake();
+        }
+
+        function clearCanvas() {
+            ctx.fillStyle = "#111";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function drawSnake() {
+            snake.forEach((part, index) => {
+                ctx.fillStyle = index === 0 ? '#007AFF' : '#66B2FF';
+                ctx.strokeStyle = '#111';
+                ctx.fillRect(part.x, part.y, gridSize, gridSize);
+                ctx.strokeRect(part.x, part.y, gridSize, gridSize);
+            });
+        }
+
+        function moveSnake() {
+            let head = {x: snake[0].x + dx, y: snake[0].y + dy};
+
+            // Modern: kein Rand, auf der anderen Seite wieder herauskommen
+            if (selectedVersion === 'modern') {
+                if (head.x < 0) head.x = canvas.width - gridSize;
+                else if (head.x >= canvas.width) head.x = 0;
+                if (head.y < 0) head.y = canvas.height - gridSize;
+                else if (head.y >= canvas.height) head.y = 0;
+            }
+
+            snake.unshift(head);
+            if (snake[0].x === food.x && snake[0].y === food.y) {
+                score += 10;
+                scoreElement.innerText = score;
+                createFood();
+
+                // Steigende Geschwindigkeit: bei jedem Essen etwas schneller werden
+                if (selectedSpeed === 'steigend') {
+                    const settings = SPEED_SETTINGS.steigend;
+                    const nextMs = Math.max(settings.min, currentIntervalMs - settings.step);
+                    if (nextMs !== currentIntervalMs) {
+                        restartIntervalWithSpeed(nextMs);
+                    }
+                }
+            } else {
+                snake.pop();
+            }
+        }
+
+        function randomGridPos(max) {
+            return Math.floor(Math.random() * (max / gridSize)) * gridSize;
+        }
+
+        function createFood() {
+            food = { x: randomGridPos(canvas.width), y: randomGridPos(canvas.height) };
+            snake.forEach(part => { if (part.x === food.x && part.y === food.y) createFood(); });
+        }
+
+        function drawFood() {
+            ctx.fillStyle = '#FF9500';
+            ctx.beginPath();
+            ctx.arc(food.x + gridSize/2, food.y + gridSize/2, gridSize/2 - 2, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+
+        function hasGameEnded() {
+            // Selbstkollision gilt in beiden Versionen
+            for (let i = 4; i < snake.length; i++) {
+                if (snake[i].x === snake[0].x && snake[i].y === snake[0].y) return true;
+            }
+
+            // Klassisch: Wand beendet das Spiel. Modern: kein Rand, also keine Wandkollision.
+            if (selectedVersion === 'klassisch') {
+                return snake[0].x < 0 || snake[0].x >= canvas.width || snake[0].y < 0 || snake[0].y >= canvas.height;
+            }
+
+            return false;
+        }
+
+        // Sensor-Logik mit relativen Werten
+        function handleOrientation(event) {
+            if (changingDirection || !isCalibrated) return;
+
+            // Berechne die Abweichung vom genullten Startpunkt
+            const diffBeta = event.beta - baseBeta;
+            const diffGamma = event.gamma - baseGamma;
+
+            // Prüfen, ob die Bewegung stark genug war und welche Richtung dominiert
+            if (Math.abs(diffGamma) > Math.abs(diffBeta)) {
+                // Links / Rechts steuern
+                if (diffGamma > threshold && dx === 0) {
+                    dx = gridSize; // Rechts
+                    dy = 0;
+                    changingDirection = true;
+                } else if (diffGamma < -threshold && dx === 0) {
+                    dx = -gridSize; // Links
+                    dy = 0;
+                    changingDirection = true;
+                }
+            } else {
+                // Vor / Zurück (Oben / Unten) steuern
+                if (diffBeta > threshold && dy === 0) {
+                    dx = 0;
+                    dy = gridSize; // Unten
+                    changingDirection = true;
+                } else if (diffBeta < -threshold && dy === 0) {
+                    dx = 0;
+                    dy = -gridSize; // Oben
+                    changingDirection = true;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
