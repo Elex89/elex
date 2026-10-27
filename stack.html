@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Stack &amp; Balance</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#e7e5df">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-top:#ece9e2;
+    --bg-bot:#d9d6cd;
+    --ink:#232320;
+    --ink-soft:#54524b;
+    --paper:#f4f2ec;
+    --line:rgba(35,35,32,0.14);
+    --stable:#3e6e8e;
+    --warn:#c98a3b;
+    --danger:#c23b3b;
+    --shade-0:#242320;
+    --shade-1:#4c4a44;
+    --shade-2:#7b7871;
+    --shade-3:#a8a59b;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    position:fixed; inset:0; width:100%; height:100%;
+    margin:0; padding:0; overflow:hidden;
+    overscroll-behavior:none;
+    background:var(--bg-bot);
+    -webkit-user-select:none; user-select:none;
+    -webkit-touch-callout:none;
+    touch-action:none;
+    font-family:'Inter',system-ui,sans-serif;
+    color:var(--ink);
+  }
+  canvas{display:block; width:100%; height:100%;}
+
+  #ui{
+    position:fixed; inset:0; pointer-events:none;
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);
+    padding-left:env(safe-area-inset-left);
+    padding-right:env(safe-area-inset-right);
+  }
+
+  /* ---------- overlays (menu / gameover) ---------- */
+  .overlay{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    pointer-events:auto;
+    background:linear-gradient(180deg,var(--bg-top),var(--bg-bot));
+  }
+  .overlay.hidden{display:none;}
+  .panel{
+    width:min(86vw,380px);
+    text-align:center;
+    padding:8px 6px;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px; letter-spacing:0.22em;
+    color:var(--ink-soft); text-transform:uppercase;
+    margin-bottom:6px;
+  }
+  h1{
+    font-family:'Big Shoulders Display',sans-serif;
+    font-weight:900;
+    font-size:min(15vw,64px);
+    line-height:0.92;
+    letter-spacing:0.01em;
+    margin:0 0 4px;
+    color:var(--ink);
+  }
+  h1 span{color:var(--ink-soft);}
+  .sub{
+    font-size:15px; color:var(--ink-soft); margin:0 0 26px;
+    line-height:1.5;
+  }
+  .group-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px; letter-spacing:0.18em; text-transform:uppercase;
+    color:var(--ink-soft); margin:18px 0 8px;
+  }
+  .choices{ display:flex; gap:8px; justify-content:center; }
+  .choice{
+    flex:1; max-width:110px;
+    font-family:'Inter'; font-weight:600; font-size:14px;
+    padding:12px 6px; border-radius:10px;
+    border:1.5px solid var(--line);
+    background:var(--paper); color:var(--ink-soft);
+    transition:all .15s ease;
+  }
+  .choice.active{
+    border-color:var(--ink); color:var(--paper); background:var(--ink);
+  }
+  .btn-start{
+    margin-top:26px;
+    width:100%; padding:16px;
+    font-family:'Big Shoulders Display'; font-weight:800; font-size:22px;
+    letter-spacing:0.06em; text-transform:uppercase;
+    background:var(--ink); color:var(--paper);
+    border-radius:12px; border:none;
+    box-shadow:0 6px 0 rgba(35,35,32,0.25);
+  }
+  .btn-start:active{ transform:translateY(4px); box-shadow:0 2px 0 rgba(35,35,32,0.25); }
+  .best{
+    margin-top:18px; font-family:'IBM Plex Mono',monospace;
+    font-size:12px; color:var(--ink-soft); letter-spacing:0.08em;
+  }
+  .best b{ color:var(--ink); font-weight:600; }
+
+  .go-stat{
+    font-family:'Big Shoulders Display'; font-weight:900;
+    font-size:min(20vw,88px); line-height:0.9; margin:2px 0 0;
+  }
+  .go-sub{ font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--ink-soft); margin-bottom:22px; }
+  .go-best{ font-size:14px; color:var(--ink-soft); margin-bottom:26px; }
+  .go-best b{ color:var(--ink); }
+
+  /* ---------- in-game HUD ---------- */
+  #hud{
+    position:absolute; top:0; left:0; right:0;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    padding:14px 18px; pointer-events:none;
+  }
+  #heightBox{ font-family:'Big Shoulders Display'; font-weight:900; line-height:0.85; }
+  #heightVal{ font-size:15vw; max-font-size:60px; }
+  #heightVal{ font-size:min(15vw,58px); color:var(--ink); }
+  #heightUnit{ font-family:'IBM Plex Mono'; font-size:11px; letter-spacing:0.18em; color:var(--ink-soft); text-transform:uppercase; }
+  #blocksVal{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-soft); margin-top:2px; }
+  #muteBtn{
+    pointer-events:auto;
+    font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.1em;
+    border:1.5px solid var(--line); background:rgba(244,242,236,0.7);
+    color:var(--ink-soft); border-radius:8px; padding:8px 10px;
+  }
+
+  #comboFlash{
+    position:absolute; left:50%; top:38%;
+    transform:translate(-50%,-50%);
+    font-family:'Big Shoulders Display'; font-weight:900;
+    font-size:26px; letter-spacing:0.04em; text-transform:uppercase;
+    color:var(--ink); opacity:0; text-align:center;
+    text-shadow:0 2px 0 var(--paper);
+  }
+
+  #hint{
+    position:absolute; bottom:26px; left:0; right:0;
+    text-align:center; font-size:13px; color:var(--ink-soft);
+    padding:0 30px; pointer-events:none; opacity:0.85;
+  }
+
+  .fade-out{ animation:fadeOut 1.4s ease forwards; }
+  @keyframes fadeOut{ 0%{opacity:1; transform:translate(-50%,-50%) scale(1);} 100%{opacity:0; transform:translate(-50%,-70%) scale(1.15);} }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<div id="ui">
+
+  <!-- START SCREEN -->
+  <div id="menu" class="overlay">
+    <div class="panel">
+      <div class="eyebrow">Physik-Stapelspiel</div>
+      <h1>STACK &amp;<br><span>BALANCE</span></h1>
+      <p class="sub">Staple Formen, so hoch du kannst.<br>Tippe, um fallen zu lassen — die Balance entscheidet.</p>
+
+      <div class="group-label">Tempo</div>
+      <div class="choices" id="speedChoices">
+        <button class="choice" data-speed="0.72">Langsam</button>
+        <button class="choice active" data-speed="1">Normal</button>
+        <button class="choice" data-speed="1.4">Schnell</button>
+      </div>
+
+      <button class="btn-start" id="startBtn">Start</button>
+      <div class="best">Bestleistung: <b id="menuBest">0,0 m</b></div>
+    </div>
+  </div>
+
+  <!-- GAME OVER SCREEN -->
+  <div id="gameover" class="overlay hidden">
+    <div class="panel">
+      <div class="eyebrow" id="collapseLabel">Eingestürzt</div>
+      <div class="go-stat" id="finalHeight">0,0</div>
+      <div class="go-sub">METER HÖHE &middot; <span id="finalBlocks">0</span> BLÖCKE</div>
+      <div class="go-best">Bestleistung: <b id="goBest">0,0 m</b></div>
+      <button class="btn-start" id="retryBtn">Nochmal</button>
+    </div>
+  </div>
+
+  <!-- IN-GAME HUD -->
+  <div id="hud" style="display:none;">
+    <div id="heightBox">
+      <div id="heightVal">0,0</div>
+      <div id="heightUnit">Meter</div>
+      <div id="blocksVal">0 Blöcke</div>
+    </div>
+    <button id="muteBtn">TON AN</button>
+  </div>
+
+  <div id="comboFlash"></div>
+  <div id="hint" style="display:none;">Tippe irgendwo, um die Form fallen zu lassen</div>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ================= canvas / dpr ================= */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let DPR = Math.min(window.devicePixelRatio||1, 2.5);
+let W=0,H=0,S=1; // css px width/height, scale factor world->px
+const WREF = 400; // reference world width
+
+function resize(){
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = Math.round(W*DPR);
+  canvas.height = Math.round(H*DPR);
+  canvas.style.width = W+'px';
+  canvas.style.height = H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  S = W/WREF;
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', ()=>setTimeout(resize,50));
+resize();
+
+/* block anti double-tap-zoom / gestures / context menu */
+document.addEventListener('gesturestart', e=>e.preventDefault());
+document.addEventListener('dblclick', e=>e.preventDefault());
+canvas.addEventListener('contextmenu', e=>e.preventDefault());
+
+/* ================= audio (session, no assets) ================= */
+let audioCtx = null, muted = false;
+function ensureAudio(){ if(!audioCtx){ try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
+function tone(freq, dur, type, vol, glideTo){
+  if(muted || !audioCtx) return;
+  const t0 = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type||'sine';
+  osc.frequency.setValueAtTime(freq, t0);
+  if(glideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(20,glideTo), t0+dur);
+  gain.gain.setValueAtTime(0.0001, t0);
+  gain.gain.linearRampToValueAtTime(vol||0.18, t0+0.012);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(t0); osc.stop(t0+dur+0.02);
+}
+const sfx = {
+  perfect(){ tone(880,0.16,'sine',0.16); tone(1320,0.12,'sine',0.08); },
+  good(){ tone(600,0.11,'sine',0.14); },
+  risky(){ tone(260,0.22,'square',0.10); },
+  miss(){ tone(180,0.3,'sawtooth',0.12,80); },
+  collapse(){ tone(320,0.9,'sawtooth',0.14,50); },
+};
+
+/* ================= game state ================= */
+const STATE = { MENU:'menu', PLAY:'play', OVER:'over' };
+let state = STATE.MENU;
+let speedMult = 1;
+let sessionBest = 0;
+
+let stack = [];        // landed blocks {cx,cy,w,h,shape,shade,rot}
+let piece = null;       // current falling/oscillating piece
+let fallingBodies = null; // used during collapse animation
+let collapseT = 0;
+let comboCount = 0;
+let score = 0;          // blocks placed
+let camY = 0, camYTarget = 0;
+let tiltAngle = 0, tiltTarget = 0;
+let shake = 0;
+let flashEls = []; // floating combo text instances {text,x,y,life}
+let particles = []; // small debris on landing (optional, minimal)
+
+const GRAVITY = 980;
+const GAP_ABOVE = 165;
+const TOP_ANCHOR = 118;   // world-y-ish screen anchor distance from top (in world units, pre-scale)
+const BOTTOM_MARGIN = 96; // reserved world units at bottom for indicator/HUD
+const MAX_TILT = 0.30;    // radians ~17deg
+const SHAPES = ['rect','rect','square','circle','triangle']; // weighted toward rect
+
+function rand(a,b){ return a + Math.random()*(b-a); }
+function choice(arr){ return arr[(Math.random()*arr.length)|0]; }
+
+function groundScreenY(){ return H - BOTTOM_MARGIN*S; }
+function worldToScreen(wx, wy){
+  return { x: W/2 + wx*S, y: groundScreenY() - (wy - camY)*S };
+}
+
+function stackTopY(){
+  if(stack.length===0) return 0;
+  const last = stack[stack.length-1];
+  return last.cy + last.h/2;
+}
+function baseHalfWidth(){
+  return stack.length? stack[0].w/2 : 85;
+}
+
+/* ================= piece lifecycle ================= */
+function currentPieceWidth(){
+  return Math.max(46, 150 - score*2.6);
+}
+function currentPieceHeight(){ return 34; }
+function currentSpeed(){
+  const base = 78*speedMult;
+  return base * (1+Math.min(score*0.018, 0.85));
+}
+
+function spawnPiece(){
+  const w = currentPieceWidth();
+  const h = currentPieceHeight();
+  const spawnY = stackTopY() + GAP_ABOVE;
+  const maxX = WREF/2 - w/2 - 14;
+  const shape = score===0 ? 'rect' : choice(SHAPES);
+  piece = {
+    cx: rand(-maxX*0.5, maxX*0.5),
+    cy: spawnY,
+    w, h, shape,
+    vx: currentSpeed() * (Math.random()<0.5?-1:1),
+    vy: 0,
+    falling: false,
+    maxX
+  };
+  camYTarget = spawnY - (groundScreenY()-TOP_ANCHOR*1)/S + TOP_ANCHOR; // recomputed below properly
+  updateCameraTarget();
+}
+
+function updateCameraTarget(){
+  const spawnY = piece ? piece.cy + (piece.falling?0:0) : stackTopY()+GAP_ABOVE;
+  const anchorScreenY = TOP_ANCHOR*S + (window.__safeTop||0);
+  camYTarget = (stackTopY()+GAP_ABOVE) - (groundScreenY()-anchorScreenY)/S;
+  if(camYTarget < 0) camYTarget = 0;
+}
+
+function contactFactor(shape){
+  if(shape==='rect'||shape==='square') return 1.0;
+  if(shape==='circle') return 0.55;
+  return 0.5; // triangle
+}
+
+function dropPiece(){
+  if(state!==STATE.PLAY || !piece || piece.falling) return;
+  piece.falling = true;
+  piece.vy = 0;
+}
+
+function landPiece(){
+  const support = stack.length ? stack[stack.length-1] : { cx:0, w: 220 };
+  const factor = contactFactor(piece.shape);
+  const effHalf = (piece.w*factor)/2;
+  const suppFactor = stack.length ? contactFactor(support.shape) : 1;
+  const suppHalf = stack.length ? (support.w*suppFactor)/2 : support.w/2;
+
+  const left = Math.max(piece.cx-effHalf, support.cx-suppHalf);
+  const right = Math.min(piece.cx+effHalf, support.cx+suppHalf);
+  const overlap = Math.max(0, right-left);
+  const ratio = overlap / (effHalf*2);
+
+  let category;
+  if(ratio <= 0.06) category='miss';
+  else if(ratio < 0.35) category='risky';
+  else if(ratio < 0.85) category='good';
+  else category='perfect';
+
+  const supportTop = stack.length ? support.cy+support.h/2 : 0;
+
+  if(category==='miss'){
+    sfx.miss();
+    triggerCollapse(piece.cx > support.cx ? 1 : -1, true);
+    return;
+  }
+
+  let finalCx = piece.cx;
+  if(category==='perfect'){ finalCx = support.cx; }
+
+  const block = {
+    cx: finalCx, cy: supportTop + piece.h/2,
+    w: piece.w, h: piece.h, shape: piece.shape,
+    shade: stack.length % 4,
+    rot: rand(-0.02,0.02)
+  };
+  stack.push(block);
+  score = stack.length;
+
+  if(category==='perfect'){ comboCount++; addScoreFlash('PERFEKT!', comboCount>=3? ` x${comboCount}`:''); sfx.perfect(); shake = Math.max(shake, 2); }
+  else if(category==='good'){ comboCount=0; sfx.good(); }
+  else { comboCount=0; addScoreFlash('WACKELIG', ''); sfx.risky(); shake = Math.max(shake, 6); }
+
+  recomputeLean(category==='perfect');
+
+  if(Math.abs(leanX) > maxLean()){
+    triggerCollapse(leanX>0?1:-1, false);
+    return;
+  }
+
+  piece = null;
+  setTimeout(()=>{ if(state===STATE.PLAY) spawnPiece(); }, 90);
+}
+
+let leanX = 0;
+function maxLean(){ return baseHalfWidth()*1.55; }
+
+function recomputeLean(correcting){
+  let sumM=0, sumMX=0;
+  for(const b of stack){
+    const m = b.w*b.h;
+    sumM += m; sumMX += m*b.cx;
+  }
+  let com = sumM? sumMX/sumM : 0;
+  if(correcting) com *= 0.86; // perfect placements self-correct slightly
+  leanX = com;
+  tiltTarget = Math.max(-1, Math.min(1, leanX/maxLean())) * MAX_TILT;
+}
+
+function addScoreFlash(main, sub){
+  flashEls.push({ text: main+sub, life: 1.0, y:0 });
+}
+
+/* ================= collapse animation ================= */
+function triggerCollapse(dir, isMiss){
+  if(state!==STATE.PLAY) return;
+  state = STATE.OVER_ANIM;
+  sfx.collapse();
+  fallingBodies = stack.map((b,i)=>({
+    cx:b.cx, cy:b.cy, w:b.w, h:b.h, shape:b.shape, shade:b.shade,
+    rot:b.rot||0,
+    vx: dir*rand(20,70)*(1+i*0.05),
+    vy: rand(-40,10),
+    va: dir*rand(0.02,0.09)*(1+i*0.08)
+  }));
+  if(isMiss && piece){
+    fallingBodies.push({
+      cx:piece.cx, cy:piece.cy, w:piece.w, h:piece.h, shape:piece.shape, shade:99,
+      rot:0, vx: dir*rand(60,120), vy:rand(20,80), va: dir*rand(0.1,0.22)
+    });
+  }
+  piece = null;
+  collapseT = 0;
+}
+
+function finalizeGameOver(){
+  state = STATE.OVER;
+  const heightM = (stackTopY()/38);
+  sessionBest = Math.max(sessionBest, heightM);
+  document.getElementById('finalHeight').textContent = heightM.toFixed(1).replace('.',',');
+  document.getElementById('finalBlocks').textContent = stack.length;
+  document.getElementById('goBest').innerHTML = sessionBest.toFixed(1).replace('.',',') + ' m';
+  document.getElementById('collapseLabel').textContent = stack.length===0 ? 'Kein guter Start' : 'Eingestürzt';
+  document.getElementById('hud').style.display='none';
+  document.getElementById('hint').style.display='none';
+  document.getElementById('gameover').classList.remove('hidden');
+}
+
+/* ================= input ================= */
+function onTap(){
+  ensureAudio();
+  if(state===STATE.PLAY){ dropPiece(); }
+}
+canvas.addEventListener('touchstart', (e)=>{ e.preventDefault(); onTap(); }, {passive:false});
+canvas.addEventListener('mousedown', onTap);
+window.addEventListener('keydown', (e)=>{ if(e.code==='Space'){ e.preventDefault(); onTap(); } });
+
+document.getElementById('speedChoices').addEventListener('click', (e)=>{
+  const btn = e.target.closest('.choice'); if(!btn) return;
+  document.querySelectorAll('#speedChoices .choice').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  speedMult = parseFloat(btn.dataset.speed);
+});
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('retryBtn').addEventListener('click', startGame);
+document.getElementById('muteBtn').addEventListener('click', ()=>{
+  muted = !muted;
+  document.getElementById('muteBtn').textContent = muted ? 'TON AUS' : 'TON AN';
+});
+
+function startGame(){
+  ensureAudio();
+  stack = []; piece=null; fallingBodies=null; score=0; comboCount=0;
+  leanX=0; tiltAngle=0; tiltTarget=0; camY=0; camYTarget=0; shake=0; flashEls=[];
+  document.getElementById('menu').classList.add('hidden');
+  document.getElementById('gameover').classList.add('hidden');
+  document.getElementById('hud').style.display='flex';
+  document.getElementById('hint').style.display='block';
+  setTimeout(()=>{ document.getElementById('hint').style.display='none'; }, 3200);
+  state = STATE.PLAY;
+  spawnPiece();
+}
+
+/* ================= update ================= */
+let lastT = performance.now();
+function update(dt){
+  if(state===STATE.PLAY && piece){
+    if(!piece.falling){
+      piece.cx += piece.vx*dt;
+      if(piece.cx > piece.maxX){ piece.cx = piece.maxX; piece.vx *= -1; }
+      if(piece.cx < -piece.maxX){ piece.cx = -piece.maxX; piece.vx *= -1; }
+    } else {
+      piece.vy += GRAVITY*dt;
+      piece.cy -= piece.vy*dt;
+      const supportTop = stack.length ? (stack[stack.length-1].cy+stack[stack.length-1].h/2) : 0;
+      if(piece.cy - piece.h/2 <= supportTop){
+        landPiece();
+      }
+    }
+  }
+
+  if(state===STATE.OVER_ANIM && fallingBodies){
+    collapseT += dt;
+    for(const b of fallingBodies){
+      b.vy += GRAVITY*0.9*dt;
+      b.cy -= b.vy*dt;
+      b.cx += b.vx*dt;
+      b.rot += b.va*dt;
+    }
+    if(collapseT > 1.15){ finalizeGameOver(); }
+  }
+
+  // camera
+  updateCameraTarget();
+  camY += (camYTarget-camY)*Math.min(1, dt*3.2);
+  tiltAngle += (tiltTarget-tiltAngle)*Math.min(1, dt*6);
+  shake *= 0.88;
+
+  // flash texts
+  for(const f of flashEls){ f.life -= dt*0.9; f.y -= dt*18; }
+  flashEls = flashEls.filter(f=>f.life>0);
+
+  // hud
+  if(state===STATE.PLAY || state===STATE.OVER_ANIM){
+    const heightM = stackTopY()/38;
+    document.getElementById('heightVal').textContent = heightM.toFixed(1).replace('.',',');
+    document.getElementById('blocksVal').textContent = stack.length+' Blöcke';
+  }
+}
+
+/* ================= drawing helpers ================= */
+function drawBlockShape(shape, x, y, w, h, rot, fill){
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.rotate(rot||0);
+  ctx.fillStyle = fill;
+  ctx.strokeStyle = 'rgba(35,35,32,0.18)';
+  ctx.lineWidth = 1;
+  if(shape==='circle'){
+    ctx.beginPath(); ctx.ellipse(0,0,w/2,h/2,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  } else if(shape==='triangle'){
+    ctx.beginPath();
+    ctx.moveTo(0,-h/2); ctx.lineTo(w/2,h/2); ctx.lineTo(-w/2,h/2); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+  } else {
+    const r = Math.min(6, w*0.06);
+    roundRect(-w/2,-h/2,w,h,r); ctx.fill(); ctx.stroke();
+  }
+  ctx.restore();
+}
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+function shadeColor(idx){
+  const arr = ['#242320','#4c4a44','#7b7871','#a8a59b'];
+  if(idx===99) return '#c23b3b';
+  return arr[idx%4];
+}
+
+function render(){
+  ctx.clearRect(0,0,W,H);
+  // bg gradient
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#ece9e2'); g.addColorStop(1,'#d9d6cd');
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+
+  const sx = (Math.random()-0.5)*shake;
+  const sy = (Math.random()-0.5)*shake;
+  ctx.save();
+  ctx.translate(sx,sy);
+
+  const pivot = worldToScreen(0,0);
+
+  // stack (rotated around ground pivot)
+  ctx.save();
+  ctx.translate(pivot.x, pivot.y);
+  ctx.rotate(tiltAngle);
+  ctx.translate(-pivot.x, -pivot.y);
+
+  // ground platform
+  ctx.fillStyle = '#232320';
+  const gw = (stack.length? stack[0].w : 220)*S;
+  ctx.fillRect(pivot.x-gw/2, pivot.y, gw, Math.max(6,10*S));
+
+  const list = (state===STATE.OVER_ANIM && fallingBodies) ? fallingBodies : stack;
+  for(const b of list){
+    const p = worldToScreen(b.cx, b.cy);
+    drawBlockShape(b.shape, p.x, p.y, b.w*S, b.h*S, b.rot, shadeColor(b.shade));
+  }
+
+  // falling / oscillating piece
+  if(piece){
+    const p = worldToScreen(piece.cx, piece.cy);
+    ctx.globalAlpha = 0.96;
+    drawBlockShape(piece.shape, p.x, p.y, piece.w*S, piece.h*S, 0, '#f4f2ec');
+    ctx.strokeStyle = 'rgba(35,35,32,0.55)';
+    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore(); // end rotated stack
+
+  // balance indicator bar (also rotates, drawn on top, at ground line)
+  const leanRatio = Math.max(-1, Math.min(1, leanX / maxLean()));
+  const absR = Math.abs(leanRatio);
+  let barColor = '#3e6e8e';
+  if(absR>0.75) barColor = '#c23b3b';
+  else if(absR>0.4) barColor = '#c98a3b';
+
+  ctx.save();
+  ctx.translate(pivot.x, pivot.y+2);
+  ctx.rotate(tiltAngle);
+  const barW = 130*S;
+  ctx.strokeStyle = barColor; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(-barW/2, 22*S); ctx.lineTo(barW/2, 22*S); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-barW/2,18*S); ctx.lineTo(-barW/2,26*S); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(barW/2,18*S); ctx.lineTo(barW/2,26*S); ctx.stroke();
+  const dotX = leanRatio*(barW/2);
+  ctx.fillStyle = barColor;
+  ctx.beginPath(); ctx.arc(dotX, 22*S, 5, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  ctx.restore(); // shake
+
+  // combo flash texts (screen space, not affected by shake/tilt)
+  const flashDiv = document.getElementById('comboFlash');
+  if(flashEls.length){
+    const f = flashEls[flashEls.length-1];
+    flashDiv.style.opacity = Math.max(0,f.life);
+    flashDiv.style.transform = `translate(-50%, calc(-50% + ${f.y}px))`;
+    flashDiv.textContent = f.text;
+  } else {
+    flashDiv.style.opacity = 0;
+  }
+}
+
+/* ================= loop ================= */
+function loop(t){
+  let dt = (t-lastT)/1000; lastT = t;
+  dt = Math.min(dt, 0.033);
+  if(document.visibilityState==='visible'){
+    update(dt);
+    render();
+  }
+  requestAnimationFrame(loop);
+}
+STATE.OVER_ANIM = 'over_anim';
+document.getElementById('menuBest').textContent = '0,0 m';
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
