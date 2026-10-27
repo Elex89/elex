@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Chroma Drop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#05060f;
+    --bg-1:#0c0f22;
+    --panel:rgba(255,255,255,0.06);
+    --panel-border:rgba(255,255,255,0.12);
+    --text:#eef1ff;
+    --muted:#8991b8;
+    --blue:#4cc9f0;
+    --green:#39e68d;
+    --yellow:#ffd166;
+    --red:#ff5d7a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; width:100%; height:100%;
+    background:var(--bg-0);
+    overflow:hidden;
+    overscroll-behavior:none;
+    touch-action:none;
+    font-family:'Outfit',sans-serif;
+    color:var(--text);
+  }
+  #app{
+    position:fixed; inset:0;
+    display:flex; flex-direction:column;
+    background:
+      radial-gradient(circle at 50% 15%, rgba(76,201,240,0.10), transparent 55%),
+      radial-gradient(circle at 50% 100%, rgba(255,93,122,0.08), transparent 60%),
+      linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 100%);
+  }
+  canvas{position:absolute; inset:0; width:100%; height:100%; display:block;}
+
+  #hud{
+    position:absolute; top:0; left:0; right:0;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    padding:calc(14px + env(safe-area-inset-top)) 18px 0 18px;
+    pointer-events:none;
+    z-index:5;
+  }
+  .hud-block{
+    display:flex; flex-direction:column; gap:2px;
+  }
+  .hud-label{
+    font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted);
+    font-weight:600;
+  }
+  .hud-value{
+    font-family:'JetBrains Mono',monospace; font-weight:700; font-size:26px;
+    text-shadow:0 0 18px rgba(76,201,240,0.35);
+  }
+  #hiValue{ text-align:right; }
+  #livesRow{ display:flex; gap:6px; margin-top:4px; }
+  .life-dot{
+    width:9px; height:9px; border-radius:50%;
+    background:var(--red);
+    box-shadow:0 0 8px rgba(255,93,122,0.7);
+    transition:opacity .2s, transform .2s;
+  }
+  .life-dot.off{ opacity:.18; background:transparent; border:1.5px solid rgba(255,255,255,0.18); box-shadow:none;}
+
+  .screen{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    padding:24px;
+    z-index:10;
+    background:rgba(4,5,12,0.72);
+    backdrop-filter:blur(6px);
+    -webkit-backdrop-filter:blur(6px);
+  }
+  .card{
+    width:100%; max-width:360px;
+    display:flex; flex-direction:column; align-items:stretch; gap:18px;
+    text-align:center;
+  }
+  .title{
+    font-weight:800; font-size:42px; line-height:1;
+    letter-spacing:-0.02em;
+    background:linear-gradient(90deg, var(--blue), var(--green) 35%, var(--yellow) 65%, var(--red));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 0 22px rgba(76,201,240,0.25));
+  }
+  .subtitle{ color:var(--muted); font-size:14px; margin-top:-8px; line-height:1.5;}
+  .section-label{
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted);
+    font-weight:700; text-align:left; margin-bottom:-8px;
+  }
+  .diff-row{ display:flex; gap:8px; }
+  .diff-btn{
+    flex:1; padding:12px 6px; border-radius:14px;
+    background:var(--panel); border:1.5px solid var(--panel-border);
+    color:var(--text); font-family:'Outfit',sans-serif; font-weight:600; font-size:14px;
+    cursor:pointer;
+  }
+  .diff-btn.active{
+    border-color:var(--blue);
+    background:rgba(76,201,240,0.14);
+    box-shadow:0 0 0 1px rgba(76,201,240,0.35) inset, 0 0 20px rgba(76,201,240,0.15);
+  }
+  .diff-hi{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); margin-top:4px;}
+  .play-btn{
+    margin-top:6px; padding:16px; border-radius:16px; border:none;
+    font-family:'Outfit',sans-serif; font-weight:800; font-size:18px; letter-spacing:.02em;
+    color:#04060d;
+    background:linear-gradient(90deg,var(--blue),var(--green));
+    box-shadow:0 10px 30px rgba(57,230,141,0.25);
+    cursor:pointer;
+  }
+  .play-btn:active{ transform:scale(0.98); }
+  .ghost-btn{
+    padding:14px; border-radius:16px; font-weight:700; font-size:15px;
+    background:transparent; border:1.5px solid var(--panel-border); color:var(--text);
+    cursor:pointer;
+  }
+  .how{
+    display:flex; flex-direction:column; gap:6px; text-align:left;
+    background:var(--panel); border:1px solid var(--panel-border); border-radius:14px; padding:12px 14px;
+    font-size:13px; color:var(--muted); line-height:1.5;
+  }
+  .how b{ color:var(--text); }
+  .final-score{
+    font-family:'JetBrains Mono',monospace; font-weight:700; font-size:56px;
+    text-shadow:0 0 26px rgba(255,93,122,0.35);
+  }
+  .best-badge{
+    display:inline-block; margin:2px auto 0; padding:5px 12px; border-radius:100px;
+    background:rgba(255,209,102,0.15); border:1px solid rgba(255,209,102,0.4);
+    color:var(--yellow); font-size:12px; font-weight:700; letter-spacing:.04em;
+  }
+  .hidden{ display:none !important; }
+  #flash{
+    position:absolute; inset:0; pointer-events:none; z-index:6;
+    background:radial-gradient(circle at 50% 78%, rgba(255,93,122,0.35), transparent 60%);
+    opacity:0; transition:opacity .12s ease-out;
+  }
+  #tapHint{
+    position:absolute; bottom:calc(10px + env(safe-area-inset-bottom)); left:0; right:0;
+    text-align:center; font-size:11px; color:var(--muted); letter-spacing:.08em;
+    text-transform:uppercase; z-index:5; pointer-events:none; opacity:.7;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="game"></canvas>
+  <div id="flash"></div>
+
+  <div id="hud" class="hidden">
+    <div class="hud-block">
+      <div class="hud-label">Score</div>
+      <div class="hud-value" id="scoreValue">0</div>
+      <div id="livesRow"></div>
+    </div>
+    <div class="hud-block">
+      <div class="hud-label" id="hiValue">Best</div>
+      <div class="hud-value" id="hiScoreValue">0</div>
+    </div>
+  </div>
+
+  <div id="tapHint" class="hidden">Links tippen ↺ &nbsp;·&nbsp; Rechts tippen ↻</div>
+
+  <div class="screen" id="startScreen">
+    <div class="card">
+      <div class="title">CHROMA<br>DROP</div>
+      <div class="subtitle">Dreh das Rad, treffe die passende Farbe, überlebe so lange du kannst.</div>
+
+      <div class="section-label">Schwierigkeit</div>
+      <div class="diff-row" id="diffRow">
+        <button class="diff-btn" data-diff="easy">Easy</button>
+        <button class="diff-btn active" data-diff="medium">Medium</button>
+        <button class="diff-btn" data-diff="hard">Hard</button>
+      </div>
+
+      <div class="section-label">Tempo</div>
+      <div class="diff-row" id="speedRow">
+        <button class="diff-btn" data-speed="constant">Konstant</button>
+        <button class="diff-btn active" data-speed="ramp">Steigend</button>
+      </div>
+
+      <div class="section-label">Leben</div>
+      <div class="diff-row" id="livesRowSel">
+        <button class="diff-btn" data-lives="1">1 Leben</button>
+        <button class="diff-btn active" data-lives="3">3 Leben</button>
+      </div>
+
+      <div class="diff-hi" id="diffHi">Best: 0</div>
+
+      <div class="how">
+        <div><b>Tippe links</b> vom Bildschirm, um das Rad gegen den Uhrzeigersinn zu drehen.</div>
+        <div><b>Tippe rechts</b>, um es im Uhrzeigersinn zu drehen.</div>
+        <div>Die passende Farbe muss <b>oben</b> stehen, wenn der Punkt ankommt. <span id="livesHint">3 Fehler</span> = Game Over.</div>
+      </div>
+
+      <button class="play-btn" id="playBtn">Spiel starten</button>
+    </div>
+  </div>
+
+  <div class="screen hidden" id="gameOverScreen">
+    <div class="card">
+      <div class="hud-label">Game Over</div>
+      <div class="final-score" id="finalScore">0</div>
+      <div id="newBestBadge" class="best-badge hidden">Neuer Highscore!</div>
+      <div class="diff-hi" id="goHi" style="margin-top:2px;">Best: 0</div>
+      <button class="play-btn" id="retryBtn">Nochmal (<span id="retryDiffLabel">Medium</span>)</button>
+      <button class="ghost-btn" id="menuBtn">Zum Menü</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- storage ----------
+  const HAS_STORAGE = !!(window.storage && window.storage.get && window.storage.set);
+  let currentHi = 0;
+
+  async function loadHi(key){
+    if(!HAS_STORAGE) return 0;
+    try{
+      const r = await window.storage.get('chromadrop-hi-'+key);
+      return r && r.value ? (parseInt(r.value,10)||0) : 0;
+    }catch(e){ return 0; }
+  }
+  async function saveHi(key, val){
+    if(!HAS_STORAGE) return;
+    try{ await window.storage.set('chromadrop-hi-'+key, String(val)); }catch(e){}
+  }
+
+  // ---------- setup ----------
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  let W=0,H=0,DPR=1;
+
+  function resize(){
+    DPR = Math.min(window.devicePixelRatio||1, 2.5);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W*DPR; canvas.height = H*DPR;
+    canvas.style.width = W+'px'; canvas.style.height = H+'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const COLORS = ['#4cc9f0','#39e68d','#ffd166','#ff5d7a']; // blue, green, yellow, red
+  const COLOR_NAMES = ['blau','grün','gelb','rot'];
+  const baseCenter = [ -Math.PI/2, 0, Math.PI/2, Math.PI ]; // top, right, bottom, left at rotation 0
+
+  function norm(a){ a = a % (Math.PI*2); if(a>Math.PI) a-=Math.PI*2; if(a<-Math.PI) a+=Math.PI*2; return a; }
+
+  const DIFFS = {
+    easy:   { fallSpeed:130, spawnMs:1450, rampEvery:8,  rampMult:1.05, minSpawn:650 },
+    medium: { fallSpeed:185, spawnMs:1150, rampEvery:7,  rampMult:1.06, minSpawn:520 },
+    hard:   { fallSpeed:255, spawnMs:880,  rampEvery:6,  rampMult:1.07, minSpawn:420 }
+  };
+
+  // ---------- state ----------
+  let state = 'menu'; // menu | playing | gameover
+  let difficulty = 'medium';
+  let speedMode = 'ramp'; // 'ramp' | 'constant'
+  let livesMode = 3; // 1 | 3
+  let score = 0, lives = 3;
+  let rotation = 0, rotationTarget = 0;
+  let dots = [];
+  let particles = [];
+  let stars = [];
+  let spawnTimer = 0, spawnInterval = 1150, fallSpeed = 185;
+  let lastTime = 0;
+  let shake = 0;
+  let wheelPulse = 0;
+
+  function initStars(){
+    stars = [];
+    for(let i=0;i<60;i++){
+      stars.push({ x:Math.random()*W, y:Math.random()*H, r:Math.random()*1.4+0.3, s:Math.random()*22+8 });
+    }
+  }
+  initStars();
+  window.addEventListener('resize', initStars);
+
+  function wheelGeom(){
+    const cx = W/2;
+    const cy = H - (Math.max(H*0.16, 130));
+    const r = Math.min(W,H) * 0.16;
+    return {cx, cy, r};
+  }
+
+  function getTopColorIndex(rot){
+    let best=0, bestDiff=Infinity;
+    for(let i=0;i<4;i++){
+      const ang = baseCenter[i] + rot;
+      const d = Math.abs(norm(ang - (-Math.PI/2)));
+      if(d < bestDiff){ bestDiff = d; best = i; }
+    }
+    return best;
+  }
+
+  // ---------- input ----------
+  function rotateStep(dir){ // dir: +1 clockwise, -1 counter-clockwise
+    rotationTarget += dir * (Math.PI/2);
+    wheelPulse = 1;
+    try{ if(navigator.vibrate) navigator.vibrate(8); }catch(e){}
+  }
+
+  canvas.addEventListener('pointerdown', (e)=>{
+    if(state !== 'playing') return;
+    const x = e.clientX;
+    if(x < W/2) rotateStep(-1); else rotateStep(1);
+  });
+
+  // ---------- spawning ----------
+  function spawnDot(){
+    const g = wheelGeom();
+    const colorIdx = Math.floor(Math.random()*4);
+    const dotR = Math.max(16, g.r*0.28);
+    dots.push({ x: g.cx, y: -40, r: dotR, colorIdx, caughtY: g.cy - g.r*0.65 });
+  }
+
+  function spawnParticles(x,y,color,n){
+    for(let i=0;i<n;i++){
+      const a = Math.random()*Math.PI*2;
+      const sp = Math.random()*140+60;
+      particles.push({
+        x,y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp,
+        life:1, color, size:Math.random()*4+2
+      });
+    }
+  }
+
+  // ---------- game flow ----------
+  function settingsKey(){ return difficulty+'-'+speedMode+'-'+livesMode; }
+
+  function resetRun(){
+    score = 0; lives = livesMode; dots = []; particles = [];
+    rotation = 0; rotationTarget = 0;
+    const d = DIFFS[difficulty];
+    fallSpeed = d.fallSpeed; spawnInterval = d.spawnMs; spawnTimer = 0;
+    shake = 0;
+  }
+
+  async function startGame(){
+    resetRun();
+    currentHi = await loadHi(settingsKey());
+    state = 'playing';
+    document.getElementById('startScreen').classList.add('hidden');
+    document.getElementById('gameOverScreen').classList.add('hidden');
+    document.getElementById('hud').classList.remove('hidden');
+    document.getElementById('tapHint').classList.remove('hidden');
+    updateHud();
+  }
+
+  async function endGame(){
+    state = 'gameover';
+    document.getElementById('hud').classList.add('hidden');
+    document.getElementById('tapHint').classList.add('hidden');
+    const isNew = score > currentHi;
+    if(isNew){ currentHi = score; await saveHi(settingsKey(), score); }
+    document.getElementById('finalScore').textContent = score;
+    document.getElementById('goHi').textContent = 'Best: ' + currentHi;
+    document.getElementById('newBestBadge').classList.toggle('hidden', !isNew);
+    document.getElementById('retryDiffLabel').textContent = difficulty[0].toUpperCase()+difficulty.slice(1);
+    document.getElementById('gameOverScreen').classList.remove('hidden');
+  }
+
+  function updateHud(){
+    document.getElementById('scoreValue').textContent = score;
+    document.getElementById('hiScoreValue').textContent = currentHi;
+    const row = document.getElementById('livesRow');
+    row.innerHTML = '';
+    for(let i=0;i<livesMode;i++){
+      const d = document.createElement('div');
+      d.className = 'life-dot' + (i < lives ? '' : ' off');
+      row.appendChild(d);
+    }
+  }
+
+  async function refreshMenuHi(){
+    currentHi = await loadHi(settingsKey());
+    document.getElementById('diffHi').textContent = 'Best: ' + currentHi;
+    document.getElementById('livesHint').textContent = (livesMode===1 ? '1 Fehler' : '3 Fehler');
+  }
+
+  function flashRed(){
+    const el = document.getElementById('flash');
+    el.style.opacity = '1';
+    setTimeout(()=>{ el.style.opacity = '0'; }, 140);
+  }
+
+  // ---------- update ----------
+  function update(dt){
+    // rotation ease
+    rotation += (rotationTarget - rotation) * Math.min(1, dt*10);
+    wheelPulse = Math.max(0, wheelPulse - dt*2.2);
+    shake = Math.max(0, shake - dt*3);
+
+    if(state !== 'playing') return;
+
+    spawnTimer += dt*1000;
+    if(spawnTimer >= spawnInterval){
+      spawnTimer = 0;
+      spawnDot();
+    }
+
+    const g = wheelGeom();
+    const topIdx = getTopColorIndex(rotation);
+
+    for(let i=dots.length-1; i>=0; i--){
+      const dt_ = dots[i];
+      dt_.y += fallSpeed * dt;
+      if(dt_.y >= dt_.caughtY){
+        if(dt_.colorIdx === topIdx){
+          score++;
+          spawnParticles(dt_.x, g.cy - g.r*0.9, COLORS[dt_.colorIdx], 18);
+          wheelPulse = 1;
+          const d = DIFFS[difficulty];
+          if(speedMode === 'ramp' && score % d.rampEvery === 0){
+            fallSpeed *= d.rampMult;
+            spawnInterval = Math.max(d.minSpawn, spawnInterval / d.rampMult);
+          }
+          updateHud();
+        } else {
+          lives--;
+          shake = 1;
+          flashRed();
+          try{ if(navigator.vibrate) navigator.vibrate([30,40,30]); }catch(e){}
+          spawnParticles(dt_.x, g.cy - g.r*0.9, '#ff5d7a', 10);
+          updateHud();
+          if(lives <= 0){
+            dots.splice(i,1);
+            endGame();
+            break;
+          }
+        }
+        dots.splice(i,1);
+        continue;
+      }
+    }
+
+    for(let i=particles.length-1;i>=0;i--){
+      const p = particles[i];
+      p.x += p.vx*dt; p.y += p.vy*dt;
+      p.vy += 220*dt;
+      p.life -= dt*1.4;
+      if(p.life <= 0) particles.splice(i,1);
+    }
+
+    for(const s of stars){
+      s.y += s.s*dt;
+      if(s.y > H){ s.y = -4; s.x = Math.random()*W; }
+    }
+  }
+
+  // ---------- draw ----------
+  function drawWheel(){
+    const g = wheelGeom();
+    const pulse = 1 + wheelPulse*0.06;
+    const topIdx = getTopColorIndex(rotation);
+
+    ctx.save();
+    ctx.translate(g.cx, g.cy);
+    ctx.scale(pulse, pulse);
+
+    // outer glow
+    ctx.save();
+    ctx.shadowColor = COLORS[topIdx];
+    ctx.shadowBlur = 40;
+    ctx.beginPath();
+    ctx.arc(0,0,g.r+6,0,Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,0.02)';
+    ctx.fill();
+    ctx.restore();
+
+    // segments
+    for(let i=0;i<4;i++){
+      const center = baseCenter[i] + rotation;
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.arc(0,0,g.r, center-Math.PI/4, center+Math.PI/4);
+      ctx.closePath();
+      ctx.fillStyle = COLORS[i];
+      ctx.fill();
+    }
+
+    // inner hub
+    ctx.beginPath();
+    ctx.arc(0,0,g.r*0.22,0,Math.PI*2);
+    ctx.fillStyle = '#0a0c18';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.stroke();
+
+    // outer ring
+    ctx.beginPath();
+    ctx.arc(0,0,g.r,0,Math.PI*2);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(5,6,15,0.55)';
+    ctx.stroke();
+
+    ctx.restore();
+
+    // top indicator marker
+    ctx.save();
+    ctx.translate(g.cx, g.cy - g.r - 14);
+    ctx.beginPath();
+    ctx.moveTo(-9,-10);
+    ctx.lineTo(9,-10);
+    ctx.lineTo(0,7);
+    ctx.closePath();
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = COLORS[topIdx];
+    ctx.shadowBlur = 14;
+    ctx.fill();
+    ctx.restore();
+
+    // catch line (subtle)
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.setLineDash([6,8]);
+    ctx.beginPath();
+    ctx.moveTo(0, g.cy - g.r*0.65);
+    ctx.lineTo(W, g.cy - g.r*0.65);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawDots(){
+    for(const d of dots){
+      ctx.save();
+      ctx.shadowColor = COLORS[d.colorIdx];
+      ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, d.r, 0, Math.PI*2);
+      ctx.fillStyle = COLORS[d.colorIdx];
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(d.x - d.r*0.3, d.y - d.r*0.3, d.r*0.32, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.fill();
+      ctx.restore();
+
+      // trail
+      ctx.save();
+      const grad = ctx.createLinearGradient(d.x, d.y - d.r*3.2, d.x, d.y - d.r);
+      grad.addColorStop(0,'rgba(255,255,255,0)');
+      grad.addColorStop(1, COLORS[d.colorIdx]+'55');
+      ctx.fillStyle = grad;
+      ctx.fillRect(d.x - d.r*0.35, d.y - d.r*3.2, d.r*0.7, d.r*2.2);
+      ctx.restore();
+    }
+  }
+
+  function drawParticles(){
+    for(const p of particles){
+      ctx.save();
+      ctx.globalAlpha = Math.max(0,p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function drawStars(){
+    ctx.save();
+    for(const s of stars){
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+
+    let sx=0, sy=0;
+    if(shake > 0){
+      sx = (Math.random()*2-1)*6*shake;
+      sy = (Math.random()*2-1)*6*shake;
+    }
+    ctx.save();
+    ctx.translate(sx, sy);
+
+    drawStars();
+    if(state !== 'menu'){
+      drawDots();
+      drawParticles();
+    }
+    drawWheel();
+
+    ctx.restore();
+  }
+
+  // ---------- loop ----------
+  function loop(t){
+    if(!lastTime) lastTime = t;
+    const dt = Math.min(0.05, (t-lastTime)/1000);
+    lastTime = t;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // ---------- UI wiring ----------
+  document.querySelectorAll('.diff-btn[data-diff]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.diff-btn[data-diff]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      difficulty = btn.getAttribute('data-diff');
+      refreshMenuHi();
+    });
+  });
+
+  document.querySelectorAll('.diff-btn[data-speed]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.diff-btn[data-speed]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      speedMode = btn.getAttribute('data-speed');
+      refreshMenuHi();
+    });
+  });
+
+  document.querySelectorAll('.diff-btn[data-lives]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.diff-btn[data-lives]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      livesMode = parseInt(btn.getAttribute('data-lives'),10);
+      refreshMenuHi();
+    });
+  });
+
+  document.getElementById('playBtn').addEventListener('click', startGame);
+  document.getElementById('retryBtn').addEventListener('click', startGame);
+  document.getElementById('menuBtn').addEventListener('click', ()=>{
+    state = 'menu';
+    document.getElementById('gameOverScreen').classList.add('hidden');
+    document.getElementById('startScreen').classList.remove('hidden');
+    refreshMenuHi();
+  });
+
+  refreshMenuHi();
+})();
+</script>
+</body>
+</html>
