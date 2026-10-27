@@ -3,54 +3,54 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#0a0a10" />
+<meta name="theme-color" content="#0c0a09" />
 <title>Alexander Rink – Kleine Apps für den Browser</title>
 <meta name="description" content="Spiele, Sport-Tools und Grafik-Apps. Jede App ist eine einzelne Datei und läuft direkt im Browser. Deine Daten bleiben bei dir." />
 <style>
   :root {
     color-scheme: light;
-    --bg: #f5f5f7;
+    --bg: #f6f5f3;
     --surface: #ffffff;
-    --surface-2: #ececf1;
+    --surface-2: #eeebe8;
     --text: #1d1d1f;
-    --muted: #6e6e73;
+    --muted: #76706a;
     --line: rgba(0,0,0,.09);
-    --accent: #3E12E3;
+    --accent: #D9480F;
     --accent-ink: #ffffff;
-    --accent-soft: rgba(62,18,227,.10);
-    --header: rgba(245,245,247,.74);
-    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 32px -12px rgba(30,20,90,.18);
+    --accent-soft: rgba(217,72,15,.10);
+    --header: rgba(246,245,243,.74);
+    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 32px -12px rgba(80,35,10,.18);
     --radius: 26px;
     --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       color-scheme: dark;
-      --bg: #0a0a10;
-      --surface: #14141d;
-      --surface-2: #1d1d2a;
-      --text: #f5f5f7;
-      --muted: #9b9bae;
+      --bg: #0c0a09;
+      --surface: #171413;
+      --surface-2: #221e1c;
+      --text: #f6f3f0;
+      --muted: #a39a92;
       --line: rgba(255,255,255,.09);
-      --accent: #7b5cff;
-      --accent-ink: #ffffff;
-      --accent-soft: rgba(123,92,255,.18);
-      --header: rgba(10,10,16,.7);
+      --accent: #FF7A29;
+      --accent-ink: #1c0d03;
+      --accent-soft: rgba(255,122,41,.16);
+      --header: rgba(12,10,9,.7);
       --shadow: 0 1px 2px rgba(0,0,0,.4), 0 16px 40px -16px rgba(0,0,0,.7);
     }
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --bg: #0a0a10;
-    --surface: #14141d;
-    --surface-2: #1d1d2a;
-    --text: #f5f5f7;
-    --muted: #9b9bae;
+    --bg: #0c0a09;
+    --surface: #171413;
+    --surface-2: #221e1c;
+    --text: #f6f3f0;
+    --muted: #a39a92;
     --line: rgba(255,255,255,.09);
-    --accent: #7b5cff;
-    --accent-ink: #ffffff;
-    --accent-soft: rgba(123,92,255,.18);
-    --header: rgba(10,10,16,.7);
+    --accent: #FF7A29;
+    --accent-ink: #1c0d03;
+    --accent-soft: rgba(255,122,41,.16);
+    --header: rgba(12,10,9,.7);
     --shadow: 0 1px 2px rgba(0,0,0,.4), 0 16px 40px -16px rgba(0,0,0,.7);
   }
 
@@ -106,7 +106,7 @@
     background: var(--surface); border: 1px solid var(--line);
     border-radius: 18px; box-shadow: var(--shadow);
   }
-  .panel a { display: block; padding: .6rem .8rem; border-radius: 12px; font-size: .95rem; }
+  .panel a { display: block; padding: .6rem .8rem; border-radius: 12px; font-size: .95rem; white-space: nowrap; }
   .panel a:hover { background: var(--accent-soft); }
   .dropdown.open .menu { opacity: 1; visibility: visible; pointer-events: auto; transform: translateX(-50%) translateY(0); }
   @media (hover: hover) and (min-width: 821px) {
@@ -159,7 +159,7 @@
   }
   .btn:active { transform: scale(.97); }
   .btn.primary { background: var(--accent); color: var(--accent-ink); }
-  .btn.primary:hover { filter: brightness(1.1); }
+  .btn.primary:hover { filter: brightness(1.08); }
   .btn.ghost { border-color: var(--line); background: var(--surface); }
   .btn.ghost:hover { background: var(--accent-soft); }
 
@@ -189,7 +189,7 @@
   .bento { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
   .tile {
     position: relative; overflow: hidden;
-    display: flex; flex-direction: column; justify-content: space-between;
+    display: flex; flex-direction: column; justify-content: space-between; gap: 1.2rem;
     grid-column: span 2; min-height: 230px; padding: 1.5rem;
     background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
     box-shadow: var(--shadow);
@@ -198,27 +198,26 @@
   .tile:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
   .tile:active { transform: scale(.985); }
   .tile.w4 { grid-column: span 4; min-height: 300px; }
-  .tile.w3 { grid-column: span 3; }
   .tile .tag { font-size: .85rem; color: var(--muted); }
   .tile h3 { margin: .15rem 0 .3rem; font-size: 1.45rem; letter-spacing: -.025em; line-height: 1.1; }
   .tile.w4 h3 { font-size: 2rem; }
   .tile p { margin: 0; color: var(--muted); font-size: .95rem; max-width: 24rem; }
   .tile .art { color: var(--accent); }
   .tile .art svg { display: block; width: 100%; height: auto; overflow: visible; }
-  .tile .art .soft { color: var(--muted); }
   .tile.w4 .art { position: absolute; right: 0; bottom: 0; width: 62%; height: 100%; display: flex; align-items: center; }
   .tile .copy { position: relative; z-index: 1; }
 
   @media (max-width: 820px) {
     .bento { grid-template-columns: repeat(2, 1fr); gap: 12px; }
-    .tile, .tile.w3 { grid-column: span 1; min-height: 210px; padding: 1.15rem; }
+    .tile { grid-column: span 1; min-height: 210px; padding: 1.15rem; }
     .tile.w4 { grid-column: span 2; min-height: 260px; }
     .tile.w4 .art { width: 80%; opacity: .55; }
-    .tile h3 { font-size: 1.2rem; }
+    .tile h3, .tile.w4 h3 { font-size: 1.2rem; }
+    .tile.w4 h3 { font-size: 1.7rem; }
     .head { flex-direction: column; align-items: start; }
   }
   @media (max-width: 440px) {
-    .tile, .tile.w3 { grid-column: span 2; min-height: 190px; }
+    .tile { grid-column: span 2; min-height: 190px; }
   }
 
   /* ---------- Prinzipien ---------- */
@@ -266,6 +265,7 @@
           <a href="https://elex89.github.io/elex/Rueckwaerts.html">Rückwärts</a>
           <a href="https://elex89.github.io/elex/sudoko.html">Sudoku</a>
           <a href="https://elex89.github.io/elex/Worte.html">Wortstufen</a>
+          <a href="https://elex89.github.io/elex/solitaire.html">Solitaire</a>
         </div></div>
       </div>
 
@@ -361,11 +361,11 @@
           </div>
         </a>
 
-        <!-- Run -->
+        <!-- Trainingstagebuch -->
         <a class="tile" href="https://elex89.github.io/elex/Run.html">
           <div class="copy">
             <span class="tag">Sport</span>
-            <h3>Run</h3>
+            <h3>Trainingstagebuch</h3>
             <p>Dein Lauftraining im Blick.</p>
           </div>
           <div class="art" aria-hidden="true">
@@ -403,14 +403,14 @@
             <p>Das klassische Zahlenrätsel.</p>
           </div>
           <div class="art" aria-hidden="true">
-            <svg viewBox="0 0 90 90" width="64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="width:64px">
+            <svg viewBox="0 0 90 90" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="width:64px">
               <rect x="2" y="2" width="86" height="86" rx="10"/>
               <path d="M31 2v86M59 2v86M2 31h86M2 59h86" stroke-opacity=".5"/>
             </svg>
           </div>
         </a>
 
-             <!-- Wortstufen -->
+        <!-- Wortstufen -->
         <a class="tile" href="https://elex89.github.io/elex/Worte.html">
           <div class="copy">
             <span class="tag">Games</span>
@@ -428,8 +428,48 @@
           </div>
         </a>
 
-        <!-- Lenticular GIF -->
-        <a class="tile w3" href="https://elex89.github.io/elex/lenticulargif.html">
+        <!-- Rückwärts -->
+        <a class="tile" href="https://elex89.github.io/elex/Rueckwaerts.html">
+          <div class="copy">
+            <span class="tag">Games</span>
+            <h3>Rückwärts</h3>
+            <p>Partyspiel: Wort rückwärts hören und erraten.</p>
+          </div>
+          <div class="art" aria-hidden="true">
+            <svg viewBox="0 0 160 40" style="width:150px" fill="currentColor">
+              <path d="M16 20 L2 20 M2 20 L9 13 M2 20 L9 27" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="30"  y="16" width="6" height="8"  rx="3" fill-opacity=".3"/>
+              <rect x="44"  y="10" width="6" height="20" rx="3" fill-opacity=".45"/>
+              <rect x="58"  y="4"  width="6" height="32" rx="3" fill-opacity=".6"/>
+              <rect x="72"  y="12" width="6" height="16" rx="3" fill-opacity=".75"/>
+              <rect x="86"  y="2"  width="6" height="36" rx="3" fill-opacity=".9"/>
+              <rect x="100" y="9"  width="6" height="22" rx="3"/>
+              <rect x="114" y="15" width="6" height="10" rx="3"/>
+            </svg>
+          </div>
+        </a>
+
+        <!-- Stereobild-Generator -->
+        <a class="tile" href="https://elex89.github.io/elex/StereoGen.html">
+          <div class="copy">
+            <span class="tag">Grafik</span>
+            <h3>Stereobild-Generator</h3>
+            <p>Magic-Eye-Bilder aus Text, Formen und Fotos.</p>
+          </div>
+          <div class="art" aria-hidden="true">
+            <svg viewBox="0 0 200 40" style="width:170px" fill="currentColor">
+              <g fill-opacity=".85">
+                <circle cx="8" cy="10" r="3"/><circle cx="30" cy="28" r="3"/><circle cx="52" cy="12" r="3"/><circle cx="74" cy="30" r="3"/><circle cx="96" cy="9" r="3"/><circle cx="118" cy="27" r="3"/><circle cx="140" cy="11" r="3"/><circle cx="162" cy="29" r="3"/><circle cx="184" cy="10" r="3"/>
+              </g>
+              <g fill-opacity=".35">
+                <circle cx="19" cy="20" r="3"/><circle cx="41" cy="8" r="3"/><circle cx="63" cy="22" r="3"/><circle cx="85" cy="34" r="3"/><circle cx="107" cy="18" r="3"/><circle cx="129" cy="6" r="3"/><circle cx="151" cy="21" r="3"/><circle cx="173" cy="33" r="3"/>
+              </g>
+            </svg>
+          </div>
+        </a>
+
+        <!-- Lenticular Generator -->
+        <a class="tile" href="https://elex89.github.io/elex/lenticulargif.html">
           <div class="copy">
             <span class="tag">Grafik</span>
             <h3>Lenticular Generator</h3>
@@ -448,7 +488,7 @@
         </a>
 
         <!-- Lenticular Pitch -->
-        <a class="tile w3" href="https://elex89.github.io/elex/lenticularpitch.html">
+        <a class="tile" href="https://elex89.github.io/elex/lenticularpitch.html">
           <div class="copy">
             <span class="tag">Grafik</span>
             <h3>Lenticular Pitch</h3>
