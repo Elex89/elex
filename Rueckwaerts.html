@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Rückwärts</title>
+<style>
+:root{--bg:#0a0a12;--card:#171726;--tx:#f4f4fb;--mu:#8b8ba7;--a:#ff2e88;--b:#22d3ee;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{min-height:100%;margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 -apple-system,system-ui,"Helvetica Neue",sans-serif}
+#app{min-height:100dvh;display:flex;flex-direction:column;gap:14px;padding:16px 20px 24px;max-width:480px;margin:0 auto}
+.top{display:flex;justify-content:space-between;align-items:center;font-size:13px}
+.logo{font-weight:900;letter-spacing:.08em;background:linear-gradient(90deg,var(--a),var(--b));-webkit-background-clip:text;background-clip:text;color:transparent}
+.mu{color:var(--mu)}.c{text-align:center}.grow{flex:1}
+.rt{border:0;border-radius:10px;padding:7px 11px;background:var(--card);color:var(--tx);font-size:12px}
+h2{margin:0;font-size:24px}
+.hero{font-size:56px;line-height:.95;font-weight:900;margin:8px 0 0;background:linear-gradient(90deg,var(--a),var(--b));-webkit-background-clip:text;background-clip:text;color:transparent}
+.big{font-size:40px;font-weight:900}
+.btn{border:0;border-radius:16px;padding:16px;font:700 17px -apple-system,system-ui,sans-serif;color:#fff;width:100%;background:linear-gradient(135deg,var(--a),#7c3aed)}
+.btn:active{transform:scale(.98)}
+.btn.g{background:var(--card);color:var(--tx)}
+.btn.s{padding:11px;font-size:15px}
+.row{display:flex;gap:10px;align-items:center}
+input{width:100%;padding:14px;border-radius:14px;border:1px solid #2a2a40;background:var(--card);color:var(--tx);font-size:16px}
+.x{flex:none;width:44px;height:44px;border:0;border-radius:12px;background:var(--card);color:var(--mu);font-size:20px}
+.vinyl{width:190px;height:190px;border-radius:50%;margin:6px auto;position:relative;
+background:radial-gradient(circle,#0a0a12 0 3%,var(--a) 4% 17%,#111 18% 20%,transparent 21%),conic-gradient(from 0deg,transparent 0 38%,rgba(255,255,255,.14) 50%,transparent 62% 88%,rgba(255,255,255,.09) 95%,transparent),repeating-radial-gradient(circle,#14141f 0 3px,#1e1e2e 4px 6px);
+box-shadow:0 0 0 3px #2a2a3d,0 18px 60px rgba(255,46,136,.25)}
+.vinyl::after{content:"";position:absolute;left:50%;top:27%;width:7px;height:7px;margin-left:-3.5px;border-radius:50%;background:#fff}
+@keyframes sp{to{transform:rotate(360deg)}}
+.vinyl.fw{animation:sp 1.6s linear infinite}.vinyl.rv{animation:sp 1.6s linear infinite reverse;box-shadow:0 0 0 3px #2a2a3d,0 18px 70px rgba(34,211,238,.4)}
+.wave{width:100%;height:70px;display:block}
+.mic{width:140px;height:140px;border-radius:50%;border:0;margin:6px auto;font-size:52px;color:#fff;background:linear-gradient(135deg,var(--a),#7c3aed);box-shadow:0 0 0 calc(var(--lv,0)*46px) rgba(255,46,136,.28),0 10px 40px rgba(255,46,136,.4);transition:box-shadow .08s}
+.mic.on{background:#e11d48}
+.card{background:var(--card);border-radius:18px;padding:16px}
+.word{font-size:38px;font-weight:900;text-align:center;padding:22px 10px;border-radius:18px;background:var(--card);filter:blur(14px);transition:filter .3s}
+.word.show{filter:none}
+.chips{display:flex;flex-wrap:wrap;gap:10px}.chips .btn{width:auto;flex:1 1 40%}
+.rk{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #26263a;font-size:19px}
+</style></head><body><div id="app"></div>
+<script>
+const $=s=>document.querySelector(s),app=$('#app');
+const E=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let names=[],rounds=1,G={};
+try{names=JSON.parse(localStorage.getItem('rw_names')||'[]')}catch(e){}
+if(names.length<2)names=['',''];
+/* ---------- Audio ---------- */
+let ctx,rs=null,level=0,cur=null;
+function ac(){if(!ctx)ctx=new(window.AudioContext||window.webkitAudioContext)();if(ctx.state!=='running')ctx.resume();return ctx}
+async function startRec(){
+  const c=ac();setRoute(true);
+  const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false}});
+  const src=c.createMediaStreamSource(stream),sp=c.createScriptProcessor(4096,1,1),chunks=[];
+  sp.onaudioprocess=e=>{const d=e.inputBuffer.getChannelData(0);chunks.push(new Float32Array(d));let m=0;for(let i=0;i<d.length;i++){const v=Math.abs(d[i]);if(v>m)m=v}level=m};
+  src.connect(sp);sp.connect(c.destination);
+  rs={stream,src,sp,chunks,rate:c.sampleRate};
+}
+function stopRec(){
+  if(!rs)return null;
+  const{stream,src,sp,chunks,rate}=rs;rs=null;level=0;
+  stream.getTracks().forEach(t=>t.stop());src.disconnect();sp.disconnect();sp.onaudioprocess=null;setRoute(false);
+  let n=0;chunks.forEach(c=>n+=c.length);
+  const d=new Float32Array(n);let o=0;chunks.forEach(c=>{d.set(c,o);o+=c.length});
+  let pk=0;for(let i=0;i<n;i++){const v=Math.abs(d[i]);if(v>pk)pk=v}
+  if(pk<.02)return null;
+  const th=pk*.08;let a=0,b=n-1;
+  while(a<n&&Math.abs(d[a])<th)a++;while(b>a&&Math.abs(d[b])<th)b--;
+  const pad=Math.floor(rate*.06);a=Math.max(0,a-pad);b=Math.min(n-1,b+pad);
+  if(b-a<rate*.15)return null;
+  const out=d.slice(a,b+1),g=Math.min(6,.9/pk);
+  for(let i=0;i<out.length;i++)out[i]*=g;
+  return{d:out,r:rate};
+}
+function stopPlay(){if(cur){try{cur.stop()}catch(e){}cur=null}}
+let spk=true;try{spk=localStorage.getItem('rw_spk')!=='0'}catch(e){}
+function setRoute(rec){try{if(navigator.audioSession)navigator.audioSession.type=rec?'play-and-record':(spk?'playback':'auto')}catch(e){}}
+function wav(d,r){const n=d.length,b=new ArrayBuffer(44+n*2),v=new DataView(b),w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};
+  w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,r,true);v.setUint32(28,r*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);
+  for(let i=0;i<n;i++)v.setInt16(44+i*2,Math.max(-1,Math.min(1,d[i]))*32767,true);
+  return new Blob([b],{type:'audio/wav'});
+}
+function playEl(clip,rev,vin,cv){
+  const d=rev?clip.d.slice().reverse():clip.d,url=URL.createObjectURL(wav(d,clip.r)),a=new Audio(url);let raf;
+  if(vin)vin.className='vinyl '+(rev?'rv':'fw');
+  const fin=()=>{cancelAnimationFrame(raf);if(vin)vin.className='vinyl';drawWave(cv,clip,rev,0);URL.revokeObjectURL(url)};
+  const tick=()=>{drawWave(cv,clip,rev,a.currentTime/(a.duration||1));raf=requestAnimationFrame(tick)};
+  a.onended=fin;
+  cur={stop(){a.onended=null;a.pause();fin()}};
+  a.play().catch(()=>{});if(cv)tick();
+}
+function play(clip,rev,vin,cv){
+  stopPlay();setRoute(false);
+  if(spk)return playEl(clip,rev,vin,cv);
+  const c=ac();
+  const d=rev?clip.d.slice().reverse():clip.d;
+  const b=c.createBuffer(1,d.length,clip.r);b.copyToChannel(d,0);
+  const s=c.createBufferSource();s.buffer=b;s.connect(c.destination);
+  const t0=c.currentTime,dur=b.duration;let raf;
+  if(vin)vin.className='vinyl '+(rev?'rv':'fw');
+  const tick=()=>{drawWave(cv,clip,rev,(c.currentTime-t0)/dur);raf=requestAnimationFrame(tick)};
+  s.onended=()=>{cancelAnimationFrame(raf);if(vin)vin.className='vinyl';drawWave(cv,clip,rev,0)};
+  cur=s;s.start();if(cv)tick();
+}
+function peaks(clip){
+  if(clip.pk)return clip.pk;
+  const n=90,s=Math.max(1,Math.floor(clip.d.length/n)),p=[];
+  for(let i=0;i<n;i++){let m=0;for(let j=i*s;j<(i+1)*s&&j<clip.d.length;j++){const v=Math.abs(clip.d[j]);if(v>m)m=v}p.push(m)}
+  return clip.pk=p;
+}
+function drawWave(cv,clip,rev,pr){
+  if(!cv||!cv.isConnected)return;
+  const dpr=devicePixelRatio||1,w=cv.width=cv.clientWidth*dpr,h=cv.height=cv.clientHeight*dpr,x=cv.getContext('2d');
+  const p=peaks(clip).slice();if(rev)p.reverse();
+  const bw=w/p.length;
+  p.forEach((v,i)=>{const bh=Math.max(3*dpr,v*h*.95);x.fillStyle=i/p.length<pr?'#22d3ee':'#3a3a55';x.fillRect(i*bw+bw*.2,(h-bh)/2,bw*.6,bh)});
+}
+/* ---------- UI helpers ---------- */
+const sp=()=>G.players[G.order[G.t]];
+const head=()=>`<div class="top"><b class="logo">◀◀ RÜCKWÄRTS</b><span class="mu">Runde ${Math.floor(G.t/G.players.length)+1}/${rounds} · ${E(sp().n)}</span><button class="rt" data-a="route">${spk?'🔊 Laut':'📞 Hörer'}</button></div>`;
+const wv=()=>`<div class="vinyl" id="v"></div><canvas class="wave" id="cv"></canvas>`;
+function recUI(title,hint,done,extra=''){
+  app.innerHTML=`${head()}<h2>${title}</h2><p class="mu" style="margin:0">${hint}</p><div class="grow"></div><button class="mic" id="mic">🎙️</button><div id="st" class="c mu">Tippen zum Starten</div><div class="grow"></div>${extra}`;
+  const mic=$('#mic'),st=$('#st');let on=false,tm,raf;
+  const fin=()=>{clearTimeout(tm);cancelAnimationFrame(raf);on=false;mic.classList.remove('on');mic.style.setProperty('--lv',0);
+    const c=stopRec();if(!c){st.textContent='Zu kurz oder zu leise – nochmal versuchen!';return}done(c)};
+  mic.onclick=async()=>{
+    if(!on){
+      stopPlay();
+      try{await startRec()}catch(e){st.textContent='Mikrofon nicht erlaubt – bitte in den Einstellungen freigeben.';return}
+      on=true;mic.classList.add('on');st.textContent='Aufnahme läuft … zum Stoppen nochmal tippen';tm=setTimeout(fin,7000);
+      const lp=()=>{mic.style.setProperty('--lv',Math.min(1,level*3));raf=requestAnimationFrame(lp)};lp();
+    }else fin();
+  };
+}
+/* ---------- Screens ---------- */
+function setup(){
+  stopPlay();
+  app.innerHTML=`<div class="top"><b class="logo">◀◀ RÜCKWÄRTS</b><button class="rt" data-a="route">${spk?'🔊 Laut':'📞 Hörer'}</button></div>
+  <h1 class="hero">Rück<br>wärts</h1>
+  <p class="mu" style="margin:0">Einer spricht ein Wort ein. Alle anderen hören es nur rückwärts, sprechen nach, was sie hören – und rückwärts wird daraus (hoffentlich) wieder das Wort.</p>
+  ${names.map((n,i)=>`<div class="row"><input data-i="${i}" value="${E(n)}" placeholder="Spieler ${i+1}" maxlength="14" autocomplete="off">${names.length>2?`<button class="x" data-a="del" data-v="${i}">×</button>`:''}</div>`).join('')}
+  ${names.length<8?'<button class="btn g s" data-a="add">+ Spieler</button>':''}
+  <div class="row card"><span class="grow">Runden (jeder spricht pro Runde einmal)</span><button class="x" data-a="rd" data-v="-1">−</button><b style="width:20px;text-align:center">${rounds}</b><button class="x" data-a="rd" data-v="1">+</button></div>
+  <div class="grow"></div><button class="btn" data-a="start">Spiel starten</button>`;
+}
+function turn(){
+  stopPlay();
+  app.innerHTML=`${head()}<div class="grow"></div><div class="c"><div class="mu">Du bist dran</div><div class="big">${E(sp().n)}</div></div>
+  <p class="c mu" style="margin:0">Die anderen schauen weg und halten sich die Ohren zu 🙉<br>Denk dir ein Wort aus und sprich es gleich deutlich ein.</p>
+  <input id="w" placeholder="Geheimes Wort (optional, für die Auflösung)" autocomplete="off" autocapitalize="off" style="-webkit-text-security:disc">
+  <div class="grow"></div><button class="btn" data-a="rec1">🎙️ Wort aufnehmen</button>`;
+}
+function rec1(){recUI('Sprich dein Wort','Ein Wort, klar und deutlich. Tippe zum Starten und Stoppen.',c=>{G.c1=c;check1()})}
+function check1(){
+  app.innerHTML=`${head()}<h2>Aufgenommen ✓</h2>${wv()}<div class="grow"></div>
+  <button class="btn g" data-a="fw1">▶ Anhören (normal)</button>
+  <div class="row"><button class="btn g" data-a="rec1" style="flex:1">Nochmal</button><button class="btn" data-a="riddle" style="flex:2">Fertig – Handy weitergeben</button></div>`;
+  drawWave($('#cv'),G.c1,false,0);
+}
+function riddle(){
+  stopPlay();
+  app.innerHTML=`${head()}<h2>Was wurde gesagt?</h2><p class="mu" style="margin:0">Hört genau hin – so oft ihr wollt. Dann sprecht ihr nach, was ihr hört.</p>${wv()}<div class="grow"></div>
+  <button class="btn" data-a="p1" style="background:linear-gradient(135deg,#22d3ee,#6366f1);padding:22px;font-size:20px">⏪ Rückwärts abspielen</button>
+  <button class="btn g" data-a="rec2">Jetzt nachsprechen →</button>`;
+  drawWave($('#cv'),G.c1,true,0);
+}
+function rec2(){recUI('Sprecht nach, was ihr hört','Genau die komischen Laute nachahmen – nicht das Wort erraten!',c=>{G.c2=c;check2()},
+  '<button class="btn g" data-a="hear1">↺ Original rückwärts nochmal hören</button>')}
+function check2(){
+  app.innerHTML=`${head()}<h2>Euer Nachsprechen – rückwärts</h2><p class="mu" style="margin:0">Klingt es wie ein Wort?</p>${wv()}<div class="grow"></div>
+  <button class="btn" data-a="p2" style="background:linear-gradient(135deg,#22d3ee,#6366f1);padding:20px;font-size:19px">⏪ Rückwärts abspielen</button>
+  <div class="row"><button class="btn g s" data-a="hear1">Original rückwärts</button><button class="btn g s" data-a="rec2">Nochmal aufnehmen</button></div>
+  <button class="btn" data-a="reveal">Auflösung →</button>`;
+  drawWave($('#cv'),G.c2,true,0);
+}
+function reveal(){
+  stopPlay();
+  const others=G.players.map((p,i)=>i).filter(i=>i!==G.order[G.t]);
+  app.innerHTML=`${head()}<div class="mu c">Das Wort war …</div>
+  <div class="word" id="wd" data-a="show">${G.word?E(G.word):'🤫 Der Sprecher verrät es!'}</div><div class="c mu" style="font-size:13px">Zum Aufdecken antippen</div>
+  <div class="row"><button class="btn g s" data-a="fw1">▶ Original</button><button class="btn g s" data-a="p1">⏪ Original rückwärts</button></div>
+  <div class="grow"></div><h3 style="margin:0">Wer hat’s erraten?</h3>
+  <div class="chips">${others.map(i=>`<button class="btn" data-a="award" data-v="${i}">${E(G.players[i].n)}</button>`).join('')}</div>
+  <button class="btn g" data-a="award" data-v="-1">Niemand 😅</button>`;
+}
+function end(){
+  stopPlay();
+  const r=G.players.slice().sort((a,b)=>b.s-a.s),med=['🥇','🥈','🥉'];
+  app.innerHTML=`<div class="top"><b class="logo">◀◀ RÜCKWÄRTS</b></div><h2>Endstand</h2>
+  <div class="card">${r.map((p,i)=>`<div class="rk"><span>${med[i]||(i+1)+'.'} ${E(p.n)}</span><b>${p.s}</b></div>`).join('')}</div>
+  <div class="grow"></div><button class="btn" data-a="again">Nochmal spielen</button>`;
+}
+/* ---------- Actions ---------- */
+const sync=()=>{document.querySelectorAll('input[data-i]').forEach(e=>names[+e.dataset.i]=e.value)};
+const A={
+  add(){sync();names.push('');setup()},
+  del(i){sync();names.splice(+i,1);setup()},
+  rd(v){sync();rounds=Math.max(1,Math.min(3,rounds+ +v));setup()},
+  start(){sync();
+    try{localStorage.setItem('rw_names',JSON.stringify(names))}catch(e){}
+    G={players:names.map((n,i)=>({n:n.trim()||'Spieler '+(i+1),s:0})),order:[],t:0};
+    for(let r=0;r<rounds;r++)G.players.forEach((_,i)=>G.order.push(i));
+    turn()},
+  rec1(){const w=$('#w');if(w)G.word=w.value.trim();stopPlay();rec1()},
+  fw1(){play(G.c1,false,$('#v'),$('#cv'))},
+  p1(){play(G.c1,true,$('#v'),$('#cv'))},
+  p2(){play(G.c2,true,$('#v'),$('#cv'))},
+  hear1(){play(G.c1,true,null,null)},
+  riddle,rec2,reveal,
+  show(){$('#wd').classList.add('show')},
+  award(i){i=+i;
+    if(i>=0){G.players[i].s+=2;sp().s+=1}
+    G.t++;G.t>=G.order.length?end():turn()},
+  again(){setup()},
+  route(){spk=!spk;try{localStorage.setItem('rw_spk',spk?'1':'0')}catch(e){}document.querySelectorAll('.rt').forEach(b=>b.textContent=spk?'🔊 Laut':'📞 Hörer')}
+};
+app.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(b&&A[b.dataset.a])A[b.dataset.a](b.dataset.v)});
+setup();
+</script></body></html>
