@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Helix Drop</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#1a9fd9; font-family:-apple-system,'Segoe UI',Roboto,sans-serif; touch-action:none; }
+  #game { display:block; width:100%; height:100%; }
+
+  .overlay { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+    background:radial-gradient(circle at 50% 20%, #35b7ec, #0f7fb8 70%); z-index:10; padding:24px; text-align:center; }
+  .hidden { display:none !important; }
+
+  h1.title { color:#fff; font-size:42px; font-weight:800; letter-spacing:1px; text-shadow:0 4px 0 rgba(0,0,0,0.15); margin-bottom:4px; }
+  .subtitle { color:rgba(255,255,255,0.85); font-size:15px; margin-bottom:10px; }
+
+  .diffBtn { width:min(300px,80vw); background:#fff; border:none; border-radius:18px; padding:16px 20px; font-size:20px; font-weight:800;
+    box-shadow:0 6px 0 rgba(0,0,0,0.15); color:#1a1a2e; display:flex; flex-direction:column; gap:4px; align-items:center; cursor:pointer; }
+  .diffBtn small { font-size:12px; font-weight:600; color:#666; }
+  .diffBtn .best { font-size:11px; font-weight:700; color:#e0393e; margin-top:2px; }
+  .diffBtn:active { transform:translateY(4px); box-shadow:0 2px 0 rgba(0,0,0,0.15); }
+  .diffBtn.easy { border-bottom:6px solid #7bc043; }
+  .diffBtn.medium { border-bottom:6px solid #f5a623; }
+  .diffBtn.hard { border-bottom:6px solid #e0393e; }
+
+  .hud { position:fixed; top:0; left:0; right:0; display:flex; align-items:flex-start; justify-content:space-between;
+    padding:calc(14px + env(safe-area-inset-top)) 14px 0 14px; z-index:5; pointer-events:none; }
+  .badge { pointer-events:auto; border-radius:16px; padding:8px 18px; text-align:center; font-weight:800; box-shadow:0 4px 0 rgba(0,0,0,0.15); }
+  .badge .lbl { font-size:11px; opacity:0.85; }
+  .badge .val { font-size:24px; line-height:1.1; }
+  .badge.best { background:#e0393e; color:#fff; }
+  .badge.score { background:#141420; color:#fff; }
+  .iconBtn { pointer-events:auto; width:46px; height:46px; border-radius:50%; background:#fff; border:none; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 0 rgba(0,0,0,0.15); font-size:18px; font-weight:800; color:#141420; }
+  .iconBtn:active { transform:translateY(3px); box-shadow:none; }
+
+  .hint { position:fixed; bottom:30px; left:0; right:0; text-align:center; color:rgba(255,255,255,0.9); font-size:14px; font-weight:600;
+    z-index:4; pointer-events:none; transition:opacity 0.6s; text-shadow:0 2px 4px rgba(0,0,0,0.2); }
+
+  .gameover .title { color:#fff; font-size:34px; font-weight:800; margin-bottom:6px; }
+  .gameover .scoreRow { display:flex; gap:14px; }
+  .gameover .scoreCard { background:rgba(255,255,255,0.15); border-radius:16px; padding:14px 24px; color:#fff; }
+  .gameover .scoreCard .n { font-size:32px; font-weight:800; }
+  .gameover .scoreCard .l { font-size:12px; opacity:0.85; }
+  .btnRow { display:flex; gap:14px; margin-top:12px; }
+  .actionBtn { border:none; border-radius:16px; padding:14px 22px; font-size:16px; font-weight:800; box-shadow:0 5px 0 rgba(0,0,0,0.15); cursor:pointer; }
+  .actionBtn:active { transform:translateY(4px); box-shadow:none; }
+  .actionBtn.primary { background:#7bc043; color:#fff; }
+  .actionBtn.secondary { background:#fff; color:#141420; }
+
+  #pauseOverlay { z-index:8; background:rgba(15,20,35,0.55); backdrop-filter:blur(2px); }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<div class="hud" id="hud">
+  <button class="iconBtn" id="menuBtn">&#8592;</button>
+  <div style="display:flex; gap:10px;">
+    <div class="badge best"><div class="lbl">Bestwert</div><div class="val" id="bestVal">0</div></div>
+    <div class="badge score"><div class="lbl">Punkte</div><div class="val" id="scoreVal">0</div></div>
+  </div>
+  <button class="iconBtn" id="pauseBtn">&#10074;&#10074;</button>
+</div>
+
+<div class="hint" id="hint">&#8592; Wischen, um den Turm zu drehen &#8594;</div>
+
+<div class="overlay" id="menuOverlay">
+  <h1 class="title">Helix Drop</h1>
+  <div class="subtitle">Dreh den Turm, triff die Lücke &ndash; ab in die Tiefe!</div>
+  <button class="diffBtn easy" data-diff="easy">Leicht<small>Keine roten Felder &middot; Endlosmodus</small><span class="best" id="bestEasy"></span></button>
+  <button class="diffBtn medium" data-diff="medium">Mittel<small>Ein paar rote Felder</small><span class="best" id="bestMedium"></span></button>
+  <button class="diffBtn hard" data-diff="hard">Schwer<small>Viele rote Felder</small><span class="best" id="bestHard"></span></button>
+</div>
+
+<div class="overlay gameover hidden" id="gameOverOverlay">
+  <div class="title">Game Over</div>
+  <div class="scoreRow">
+    <div class="scoreCard"><div class="n" id="finalScore">0</div><div class="l">Punkte</div></div>
+    <div class="scoreCard"><div class="n" id="finalBest">0</div><div class="l">Bestwert</div></div>
+  </div>
+  <div class="btnRow">
+    <button class="actionBtn primary" id="retryBtn">Nochmal</button>
+    <button class="actionBtn secondary" id="menuBtn2">Menü</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="pauseOverlay">
+  <div class="title" style="color:#fff;font-size:30px;font-weight:800;">Pausiert</div>
+  <div class="btnRow">
+    <button class="actionBtn primary" id="resumeBtn">Weiter</button>
+    <button class="actionBtn secondary" id="menuBtn3">Menü</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  let W, H, DPR;
+  function resize(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W*DPR; canvas.height = H*DPR;
+    canvas.style.width = W+'px'; canvas.style.height = H+'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---------- Storage (best scores) ----------
+  const bestScores = { easy:0, medium:0, hard:0 };
+  async function loadBest(){
+    for(const d of ['easy','medium','hard']){
+      try{
+        const r = await window.storage.get('helixdrop_best_'+d);
+        if(r && r.value) bestScores[d] = parseInt(r.value)||0;
+      }catch(e){ /* key doesn't exist or storage unavailable */ }
+    }
+    updateMenuBests();
+  }
+  async function saveBest(diff){
+    try{ await window.storage.set('helixdrop_best_'+diff, String(bestScores[diff])); }catch(e){}
+  }
+  function updateMenuBests(){
+    document.getElementById('bestEasy').textContent = bestScores.easy ? 'Bestwert: '+bestScores.easy : '';
+    document.getElementById('bestMedium').textContent = bestScores.medium ? 'Bestwert: '+bestScores.medium : '';
+    document.getElementById('bestHard').textContent = bestScores.hard ? 'Bestwert: '+bestScores.hard : '';
+  }
+  loadBest();
+
+  // ---------- Game constants ----------
+  const SLICES = 8;
+  const SLICE_DEG = 360/SLICES;
+  const GRAVITY = 0.45;
+  const GAP_DISTANCE = 220;
+  const BOUNCE_VEL = -Math.sqrt(2*GRAVITY*GAP_DISTANCE)*0.72;
+  const BALL_RADIUS = 14;
+  const PLATFORM_R = 118;
+  const SQUISH = 0.34;
+  const SKIRT_H = 34;
+  const POLE_W = 24;
+  const REF_ANGLE = 90; // reference screen angle where the ball interacts with the ring
+
+  const COLORS = {
+    green: '#8BC34A', greenDark:'#6a9a37',
+    red: '#EF4136', redDark:'#b12e26',
+    pole:'#e9edf1', poleShade:'#c3ccd4'
+  };
+
+  let state = 'menu'; // menu | playing | paused | gameover
+  let difficulty = 'easy';
+  let platforms = [];
+  let ball, cameraY, targetCameraY, rotationOffset, dragStartX, dragStartRot, dragging;
+  let score, best;
+  let animId;
+
+  function rand(a,b){ return a + Math.random()*(b-a); }
+  function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+
+  function genPlatform(index, diff){
+    const types = new Array(SLICES).fill('green');
+    const gapIndex = Math.floor(Math.random()*SLICES);
+    types[gapIndex] = 'gap';
+    let redCount = 0;
+    if(diff==='medium') redCount = Math.random() < 0.55 ? 1 : 0;
+    if(diff==='hard') redCount = 1 + Math.floor(Math.random()*2.2); // 1-3
+    if(index < 2) redCount = 0; // gentle start
+    const avail = shuffle([...Array(SLICES).keys()].filter(i=>i!==gapIndex));
+    for(let i=0;i<redCount && i<avail.length-1;i++){ types[avail[i]] = 'red'; } // keep at least one green
+    return { y: 340 + index*GAP_DISTANCE, rotation: rand(0,360), types };
+  }
+
+  function ensurePlatforms(upToIndex){
+    while(platforms.length <= upToIndex){
+      platforms.push(genPlatform(platforms.length, difficulty));
+    }
+  }
+
+  function startGame(diff){
+    difficulty = diff;
+    platforms = [];
+    ensurePlatforms(40);
+    ball = { y: 0, vy: 0 };
+    cameraY = 0; targetCameraY = 0;
+    rotationOffset = 0;
+    score = 0; best = bestScores[diff];
+    state = 'playing';
+    document.getElementById('menuOverlay').classList.add('hidden');
+    document.getElementById('gameOverOverlay').classList.add('hidden');
+    document.getElementById('pauseOverlay').classList.add('hidden');
+    document.getElementById('scoreVal').textContent = '0';
+    document.getElementById('bestVal').textContent = best;
+    document.getElementById('hint').style.opacity = '1';
+    setTimeout(()=>{ document.getElementById('hint').style.opacity='0'; }, 3200);
+    if(!animId) loop();
+  }
+
+  function backToMenu(){
+    state = 'menu';
+    document.getElementById('menuOverlay').classList.remove('hidden');
+    document.getElementById('gameOverOverlay').classList.add('hidden');
+    document.getElementById('pauseOverlay').classList.add('hidden');
+    updateMenuBests();
+  }
+
+  function endGame(){
+    state = 'gameover';
+    if(score > bestScores[difficulty]){ bestScores[difficulty] = score; saveBest(difficulty); }
+    document.getElementById('finalScore').textContent = score;
+    document.getElementById('finalBest').textContent = bestScores[difficulty];
+    document.getElementById('gameOverOverlay').classList.remove('hidden');
+  }
+
+  // ---------- Input ----------
+  let lastX = 0;
+  canvas.addEventListener('pointerdown', e=>{
+    if(state !== 'playing') return;
+    dragging = true; dragStartX = e.clientX; dragStartRot = rotationOffset;
+  });
+  window.addEventListener('pointermove', e=>{
+    if(!dragging || state!=='playing') return;
+    const dx = e.clientX - dragStartX;
+    rotationOffset = dragStartRot - dx*0.45;
+  });
+  window.addEventListener('pointerup', ()=>{ dragging = false; });
+  window.addEventListener('pointercancel', ()=>{ dragging = false; });
+
+  // ---------- Physics / collision ----------
+  function processCollisions(prevY, newY){
+    // check every platform the ball's y crosses this frame (falling)
+    let i = 0;
+    while(i < platforms.length){
+      const p = platforms[i];
+      if(p.y > prevY && p.y <= newY){
+        const local = (((REF_ANGLE - rotationOffset - p.rotation) % 360) + 360) % 360;
+        const sliceIndex = Math.floor(local / SLICE_DEG) % SLICES;
+        const type = p.types[sliceIndex];
+        if(type === 'gap'){
+          score++;
+          document.getElementById('scoreVal').textContent = score;
+          i++; continue; // keep falling, check next platform too
+        } else if(type === 'red'){
+          ball.y = p.y; ball.vy = 0;
+          endGame();
+          return true;
+        } else {
+          ball.y = p.y; ball.vy = BOUNCE_VEL;
+          return false;
+        }
+      }
+      i++;
+    }
+    return false;
+  }
+
+  function update(){
+    if(state !== 'playing') return;
+    const prevY = ball.y;
+    ball.vy += GRAVITY;
+    ball.y += ball.vy;
+    const dead = processCollisions(prevY, ball.y);
+    if(dead) return;
+
+    const lastIndex = Math.floor((ball.y - 340) / GAP_DISTANCE) + 6;
+    ensurePlatforms(Math.max(lastIndex, 40));
+    if(platforms.length > 200){
+      platforms = platforms.filter(p => p.y > ball.y - 1500);
+    }
+
+    targetCameraY = ball.y - H*0.32;
+    cameraY += (targetCameraY - cameraY) * 0.12;
+  }
+
+  // ---------- Rendering ----------
+  function drawPole(){
+    const cx = W/2;
+    const grad = ctx.createLinearGradient(cx-POLE_W/2,0,cx+POLE_W/2,0);
+    grad.addColorStop(0, COLORS.poleShade);
+    grad.addColorStop(0.5, COLORS.pole);
+    grad.addColorStop(1, COLORS.poleShade);
+    ctx.fillStyle = grad;
+    ctx.fillRect(cx-POLE_W/2, 0, POLE_W, H);
+  }
+
+  function drawPlatform(p){
+    const cx = W/2;
+    const screenY = p.y - cameraY;
+    if(screenY < -160 || screenY > H+160) return;
+
+    // skirt (underside shadow) for pseudo-3D thickness
+    ctx.save();
+    ctx.translate(cx, screenY + SKIRT_H);
+    ctx.scale(1, SQUISH);
+    ctx.beginPath();
+    ctx.arc(0,0, PLATFORM_R, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fill();
+    ctx.restore();
+
+    for(let i=0;i<SLICES;i++){
+      const type = p.types[i];
+      if(type === 'gap') continue;
+      const startDeg = i*SLICE_DEG + p.rotation + rotationOffset;
+      const endDeg = startDeg + SLICE_DEG;
+      const startRad = startDeg*Math.PI/180;
+      const endRad = endDeg*Math.PI/180;
+
+      ctx.save();
+      ctx.translate(cx, screenY);
+      ctx.scale(1, SQUISH);
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.arc(0,0, PLATFORM_R, startRad, endRad);
+      ctx.closePath();
+      ctx.fillStyle = type === 'red' ? COLORS.red : COLORS.green;
+      ctx.fill();
+      ctx.lineWidth = 2/SQUISH;
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function drawBall(){
+    const cx = W/2;
+    const screenY = ball.y - cameraY;
+    const grad = ctx.createRadialGradient(cx-4, screenY-6, 2, cx, screenY, BALL_RADIUS);
+    grad.addColorStop(0, '#bfe9ff');
+    grad.addColorStop(1, '#3fa8e0');
+    ctx.beginPath();
+    ctx.arc(cx, screenY, BALL_RADIUS, 0, Math.PI*2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+    // shadow beneath (on nearest platform below)
+  }
+
+  function render(){
+    // sky background
+    const bg = ctx.createLinearGradient(0,0,0,H);
+    bg.addColorStop(0,'#3fc1f0');
+    bg.addColorStop(1,'#0f7fb8');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0,0,W,H);
+
+    if(state === 'menu'){ return; }
+
+    drawPole();
+    // draw platforms back-to-front (further/higher-index later so closer ones overlap correctly)
+    const visible = platforms.filter(p => p.y - cameraY > -200 && p.y - cameraY < H+200);
+    visible.sort((a,b)=>a.y-b.y);
+    for(const p of visible) drawPlatform(p);
+    drawBall();
+  }
+
+  function loop(){
+    update();
+    render();
+    animId = requestAnimationFrame(loop);
+  }
+
+  // ---------- UI wiring ----------
+  document.querySelectorAll('.diffBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=> startGame(btn.dataset.diff));
+  });
+  document.getElementById('pauseBtn').addEventListener('click', ()=>{
+    if(state !== 'playing') return;
+    state = 'paused';
+    document.getElementById('pauseOverlay').classList.remove('hidden');
+  });
+  document.getElementById('resumeBtn').addEventListener('click', ()=>{
+    if(state !== 'paused') return;
+    state = 'playing';
+    document.getElementById('pauseOverlay').classList.add('hidden');
+  });
+  document.getElementById('retryBtn').addEventListener('click', ()=> startGame(difficulty));
+  document.getElementById('menuBtn').addEventListener('click', backToMenu);
+  document.getElementById('menuBtn2').addEventListener('click', backToMenu);
+  document.getElementById('menuBtn3').addEventListener('click', backToMenu);
+
+  render();
+  requestAnimationFrame(function initialLoop(){
+    render();
+    if(state==='menu') requestAnimationFrame(initialLoop);
+  });
+})();
+</script>
+</body>
+</html>
