@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Ring Runner</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width:100%; height:100%; overflow:hidden;
+    background:#05060f;
+    touch-action:none;
+    -webkit-user-select:none; user-select:none;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  }
+  #wrap { position:fixed; inset:0; }
+  canvas { display:block; width:100%; height:100%; }
+
+  #hud {
+    position:absolute; top:0; left:0; right:0;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    padding: max(14px, env(safe-area-inset-top)) 18px 0 18px;
+    pointer-events:none;
+    z-index:5;
+  }
+  #score {
+    font-size:34px; font-weight:800; color:#eafcff;
+    text-shadow:0 0 14px rgba(80,220,255,0.85), 0 0 30px rgba(80,220,255,0.4);
+    font-variant-numeric: tabular-nums;
+  }
+  #lives { display:flex; gap:7px; margin-top:6px; }
+  .heart {
+    width:16px; height:16px; border-radius:50% 50% 50% 0;
+    background:#ff3d7a; transform:rotate(45deg);
+    box-shadow:0 0 10px rgba(255,61,122,0.9);
+    transition:opacity .2s, transform .2s;
+  }
+  .heart.lost { opacity:0.15; box-shadow:none; transform:rotate(45deg) scale(0.7); }
+  #best {
+    font-size:13px; color:#7fe8ff; opacity:0.8; text-align:right; margin-top:4px;
+    letter-spacing:0.5px;
+  }
+
+  .overlay {
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:0 30px;
+    background:radial-gradient(ellipse at center, rgba(10,14,40,0.55) 0%, rgba(3,4,12,0.92) 75%);
+    z-index:10;
+  }
+  .hidden { display:none !important; }
+  .title {
+    font-size:44px; font-weight:900; letter-spacing:1px;
+    background:linear-gradient(90deg,#5df2ff,#ff5de0);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 0 40px rgba(90,220,255,0.35);
+    margin-bottom:10px;
+  }
+  .subtitle { color:#9fd8ea; font-size:15px; opacity:0.85; margin-bottom:34px; max-width:280px; line-height:1.5; }
+  .bignum { font-size:64px; font-weight:900; color:#fff; text-shadow:0 0 30px rgba(93,242,255,0.6); }
+  .label { font-size:13px; color:#8fd6ea; letter-spacing:2px; text-transform:uppercase; margin-top:2px; opacity:0.75; }
+  .gorow { display:flex; gap:34px; margin:22px 0 34px 0; }
+  .btn {
+    pointer-events:auto;
+    padding:16px 46px;
+    border-radius:999px;
+    background:linear-gradient(135deg,#4be1ff,#6c5dff);
+    color:#04070f; font-weight:800; font-size:18px;
+    box-shadow:0 8px 26px rgba(75,225,255,0.35), inset 0 1px 1px rgba(255,255,255,0.5);
+    border:none; letter-spacing:0.5px;
+  }
+  .hint { position:absolute; bottom:max(30px, env(safe-area-inset-bottom)); font-size:12px; color:#6fa; opacity:0; }
+  #ringIcon { margin-bottom:6px; opacity:0.9; }
+  .diffRow { pointer-events:auto; display:flex; gap:10px; margin-bottom:26px; }
+  .diffBtn {
+    padding:10px 16px; border-radius:999px; border:1.5px solid rgba(120,200,255,0.35);
+    background:rgba(20,30,60,0.5); color:#9fd8ea; font-size:13px; font-weight:700;
+    letter-spacing:1px;
+  }
+  .diffBtn.selected {
+    background:linear-gradient(135deg,#4be1ff,#6c5dff); color:#04070f;
+    border-color:transparent; box-shadow:0 4px 16px rgba(75,225,255,0.35);
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+
+  <div id="hud">
+    <div>
+      <div id="score">0</div>
+      <div id="lives"></div>
+    </div>
+    <div id="best">BESTWERT<br><span id="bestVal">0</span></div>
+  </div>
+
+  <div class="overlay" id="startScreen">
+    <svg id="ringIcon" width="86" height="86" viewBox="0 0 86 86">
+      <circle cx="43" cy="43" r="34" fill="none" stroke="#5df2ff" stroke-width="4" stroke-dasharray="160 40" stroke-linecap="round" opacity="0.9"/>
+      <circle cx="43" cy="43" r="6" fill="#ff5de0" style="filter:drop-shadow(0 0 8px #ff5de0)"/>
+    </svg>
+    <div class="title">RING RUNNER</div>
+    <div class="subtitle">Ringe schrumpfen auf dich zu. Bewege deinen Finger, um die Lücke zu treffen und hindurchzugleiten.</div>
+    <div class="diffRow" id="diffRow">
+      <button class="diffBtn" data-diff="easy">LEICHT</button>
+      <button class="diffBtn selected" data-diff="medium">MITTEL</button>
+      <button class="diffBtn" data-diff="hard">SCHWER</button>
+    </div>
+    <button class="btn" id="startBtn">START</button>
+  </div>
+
+  <div class="overlay hidden" id="overScreen">
+    <div class="label">Punkte</div>
+    <div class="bignum" id="finalScore">0</div>
+    <div id="newBest" class="label" style="color:#ff5de0; opacity:0; margin-top:6px;">NEUER BESTWERT!</div>
+    <div class="gorow"></div>
+    <button class="btn" id="retryBtn">NOCHMAL</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const livesEl = document.getElementById('lives');
+  const bestValEl = document.getElementById('bestVal');
+  const startScreen = document.getElementById('startScreen');
+  const overScreen = document.getElementById('overScreen');
+  const finalScoreEl = document.getElementById('finalScore');
+  const newBestEl = document.getElementById('newBest');
+  const startBtn = document.getElementById('startBtn');
+  const retryBtn = document.getElementById('retryBtn');
+
+  let DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+  let W, H, cx, cy;
+
+  function resize(){
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W+'px'; canvas.style.height = H+'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    cx = W/2; cy = H*0.46;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---------- state ----------
+  let bestScore = 0;
+  let running = false;
+  let score = 0;
+  let lives = 3;
+  const MAX_LIVES = 3;
+  let theta = 0;          // player angle (rendered, smoothed)
+  let targetTheta = 0;    // where finger points
+  let hasInput = false;
+  const PLAYER_R_FRAC = 0.135; // fraction of min(W,H) -> ring radius where player sits
+
+  let rings = [];
+  let spawnTimer = 0;
+  let elapsed = 0;
+  let invuln = 0;
+  let shake = 0;
+  let particles = [];
+  let flashHit = 0, flashPass = 0;
+  let bgRot = 0;
+
+  function playerRadius(){ return Math.min(W,H) * PLAYER_R_FRAC; }
+  function maxRingRadius(){ return Math.hypot(Math.max(cx, W-cx), Math.max(cy, H-cy)) + 40; }
+
+  function angleDiff(a,b){
+    let d = (b-a) % (Math.PI*2);
+    if (d > Math.PI) d -= Math.PI*2;
+    if (d < -Math.PI) d += Math.PI*2;
+    return d;
+  }
+
+  // ---------- input ----------
+  function pointerAngle(x,y){
+    return Math.atan2(y-cy, x-cx);
+  }
+  function handlePointer(x,y){
+    targetTheta = pointerAngle(x,y);
+    hasInput = true;
+  }
+  canvas.addEventListener('touchstart', e=>{
+    const t = e.touches[0];
+    handlePointer(t.clientX, t.clientY);
+  }, {passive:true});
+  canvas.addEventListener('touchmove', e=>{
+    const t = e.touches[0];
+    handlePointer(t.clientX, t.clientY);
+  }, {passive:true});
+  canvas.addEventListener('mousedown', e=> handlePointer(e.clientX, e.clientY));
+  window.addEventListener('mousemove', e=>{ if(e.buttons===1) handlePointer(e.clientX, e.clientY); });
+
+  // ---------- rings ----------
+  const DIFFICULTY_PRESETS = {
+    easy:   { rampOver: 60, spawnStart: 1.9,  spawnEnd: 1.3, speedStart: 60,  speedEnd: 130, gapStart: 1.35, gapEnd: 0.85, rotChance: 0.35, rotMax: 0.55 },
+    medium: { rampOver: 50, spawnStart: 1.55, spawnEnd: 1.0, speedStart: 80,  speedEnd: 170, gapStart: 1.2,  gapEnd: 0.68, rotChance: 0.45, rotMax: 0.75 },
+    hard:   { rampOver: 42, spawnStart: 1.2,  spawnEnd: 0.7, speedStart: 100, speedEnd: 220, gapStart: 1.05, gapEnd: 0.55, rotChance: 0.55, rotMax: 0.95 }
+  };
+  let difficulty = 'medium';
+  function preset(){ return DIFFICULTY_PRESETS[difficulty]; }
+
+  function difficultyT(){
+    const p = preset();
+    return Math.min(score / p.rampOver, 1);
+  }
+
+  function spawnRing(){
+    const p = preset();
+    const t = difficultyT();
+    const gapWidth = lerp(p.gapStart, p.gapEnd, t) + (Math.random()*0.12 - 0.06);
+    const gapCenter = Math.random()*Math.PI*2;
+    const speed = lerp(p.speedStart, p.speedEnd, t) + Math.random()*15;
+    const rotDir = Math.random() < 0.5 ? -1 : 1;
+    const rotSpeed = (Math.random() < (1-p.rotChance) ? 0 : rotDir * lerp(0.1, p.rotMax, Math.random()));
+    const hue = 190 + Math.random()*140;
+    rings.push({
+      radius: maxRingRadius(),
+      gapCenter, gapWidth, speed, rotSpeed,
+      hue, resolved:false
+    });
+  }
+
+  function lerp(a,b,t){ return a+(b-a)*t; }
+
+  function spawnInterval(){
+    const p = preset();
+    const t = difficultyT();
+    return lerp(p.spawnStart, p.spawnEnd, t);
+  }
+
+  // ---------- particles ----------
+  function burst(x,y,color,n,speedMul){
+    for(let i=0;i<n;i++){
+      const a = Math.random()*Math.PI*2;
+      const sp = (Math.random()*2+1)*(speedMul||1);
+      particles.push({
+        x,y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp,
+        life:1, color
+      });
+    }
+  }
+
+  // ---------- lifecycle ----------
+  function updateHearts(){
+    livesEl.innerHTML='';
+    for(let i=0;i<MAX_LIVES;i++){
+      const h = document.createElement('div');
+      h.className = 'heart' + (i >= lives ? ' lost' : '');
+      livesEl.appendChild(h);
+    }
+  }
+
+  function resetGame(){
+    score = 0; lives = 3; rings = []; particles=[];
+    theta = -Math.PI/2; targetTheta = -Math.PI/2; hasInput=false;
+    spawnTimer = 0; elapsed = 0; invuln = 1.0; shake=0;
+    scoreEl.textContent = '0';
+    updateHearts();
+  }
+
+  function startGame(){
+    resetGame();
+    startScreen.classList.add('hidden');
+    overScreen.classList.add('hidden');
+    running = true;
+    lastT = performance.now();
+    requestAnimationFrame(loop);
+  }
+
+  function endGame(){
+    running = false;
+    if (score > bestScore){
+      bestScore = score;
+      bestValEl.textContent = bestScore;
+      newBestEl.style.opacity = 1;
+    } else {
+      newBestEl.style.opacity = 0;
+    }
+    finalScoreEl.textContent = score;
+    setTimeout(()=> overScreen.classList.remove('hidden'), 550);
+  }
+
+  startBtn.addEventListener('click', startGame);
+  retryBtn.addEventListener('click', startGame);
+
+  document.querySelectorAll('.diffBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.diffBtn').forEach(b=>b.classList.remove('selected'));
+      btn.classList.add('selected');
+      difficulty = btn.dataset.diff;
+    });
+  });
+
+  // ---------- main loop ----------
+  let lastT = performance.now();
+  function loop(now){
+    if(!running) return;
+    let dt = (now - lastT)/1000;
+    dt = Math.min(dt, 0.033);
+    lastT = now;
+    update(dt);
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  function update(dt){
+    elapsed += dt;
+    if (invuln>0) invuln -= dt;
+    if (shake>0) shake -= dt*3;
+    if (flashHit>0) flashHit -= dt*2.4;
+    if (flashPass>0) flashPass -= dt*2.4;
+    bgRot += dt*0.05;
+
+    // smooth rotation toward target (shortest path)
+    if (hasInput){
+      const d = angleDiff(theta, targetTheta);
+      theta += d * Math.min(1, dt*14);
+    }
+
+    // spawn
+    spawnTimer -= dt;
+    if (spawnTimer <= 0){
+      spawnRing();
+      spawnTimer = spawnInterval();
+    }
+
+    const pr = playerRadius();
+
+    for (let i = rings.length-1; i>=0; i--){
+      const r = rings[i];
+      const prevR = r.radius;
+      r.radius -= r.speed * dt;
+      r.gapCenter += r.rotSpeed * dt;
+
+      if (!r.resolved && prevR >= pr && r.radius < pr){
+        r.resolved = true;
+        const d = Math.abs(angleDiff(theta, r.gapCenter));
+        const halfGap = r.gapWidth/2;
+        const px = cx + Math.cos(theta)*pr;
+        const py = cy + Math.sin(theta)*pr;
+        if (d <= halfGap || invuln > 0){
+          score++;
+          scoreEl.textContent = score;
+          flashPass = 1;
+          burst(px, py, `hsl(${r.hue},100%,65%)`, 10, 1.2);
+          if (navigator.vibrate) navigator.vibrate(8);
+        } else {
+          lives--;
+          updateHearts();
+          shake = 1;
+          flashHit = 1;
+          invuln = 1.1;
+          burst(px, py, '#ff3d7a', 22, 2.2);
+          if (navigator.vibrate) navigator.vibrate([20,30,20]);
+          if (lives <= 0){
+            endGame();
+            return;
+          }
+        }
+      }
+      if (r.radius < -20) rings.splice(i,1);
+    }
+
+    for (let i=particles.length-1;i>=0;i--){
+      const p = particles[i];
+      p.x += p.vx; p.y += p.vy;
+      p.vx *= 0.94; p.vy *= 0.94;
+      p.life -= dt*1.6;
+      if (p.life<=0) particles.splice(i,1);
+    }
+  }
+
+  function render(){
+    ctx.clearRect(0,0,W,H);
+
+    // background
+    const grad = ctx.createRadialGradient(cx,cy,0,cx,cy, Math.max(W,H)*0.75);
+    grad.addColorStop(0, '#0b1030');
+    grad.addColorStop(1, '#03040c');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,W,H);
+
+    // subtle rotating grid rays
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.rotate(bgRot);
+    ctx.strokeStyle = 'rgba(90,150,255,0.06)';
+    ctx.lineWidth = 1;
+    for(let i=0;i<12;i++){
+      const a = i/12*Math.PI*2;
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.lineTo(Math.cos(a)*maxRingRadius(), Math.sin(a)*maxRingRadius());
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    let ox=0, oy=0;
+    if (shake>0){
+      ox = (Math.random()-0.5)*14*shake;
+      oy = (Math.random()-0.5)*14*shake;
+    }
+    ctx.save();
+    ctx.translate(ox,oy);
+
+    // rings
+    for (const r of rings){
+      if (r.radius < 4) continue;
+      const start = r.gapCenter + r.gapWidth/2;
+      const end = start + (Math.PI*2 - r.gapWidth);
+      ctx.beginPath();
+      ctx.arc(cx, cy, r.radius, start, end);
+      const dimNear = r.radius < playerRadius()*1.5 ? 1 : 0.7;
+      ctx.strokeStyle = `hsla(${r.hue}, 100%, 65%, ${dimNear})`;
+      ctx.lineWidth = 5;
+      ctx.shadowColor = `hsla(${r.hue}, 100%, 60%, 0.9)`;
+      ctx.shadowBlur = 16;
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+
+    // target radius guide ring
+    const pr = playerRadius();
+    ctx.beginPath();
+    ctx.arc(cx,cy,pr,0,Math.PI*2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // particles
+    for (const p of particles){
+      ctx.globalAlpha = Math.max(p.life,0);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x+ox, p.y+oy, 3, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // player
+    const px = cx + Math.cos(theta)*pr;
+    const py = cy + Math.sin(theta)*pr;
+    ctx.beginPath();
+    const pulse = invuln > 0 ? (Math.sin(elapsed*30)*0.5+0.5) : 1;
+    ctx.fillStyle = invuln>0 ? `rgba(255,255,255,${0.5+0.5*pulse})` : '#5df2ff';
+    ctx.shadowColor = invuln>0 ? '#ffffff' : '#5df2ff';
+    ctx.shadowBlur = 22;
+    ctx.arc(px,py,9,0,Math.PI*2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // trailing line from center to player (subtle)
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.lineTo(px,py);
+    ctx.strokeStyle = 'rgba(93,242,255,0.15)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.restore();
+
+    // flashes
+    if (flashHit>0){
+      ctx.fillStyle = `rgba(255,50,90,${flashHit*0.28})`;
+      ctx.fillRect(0,0,W,H);
+    }
+    if (flashPass>0){
+      ctx.fillStyle = `rgba(93,242,255,${flashPass*0.12})`;
+      ctx.fillRect(0,0,W,H);
+    }
+  }
+
+  // idle preview render before start
+  updateHearts();
+  bestValEl.textContent = bestScore;
+  theta = -Math.PI/2;
+  (function previewLoop(){
+    if (!running){
+      elapsed += 0.016; bgRot += 0.0008;
+      render();
+      requestAnimationFrame(previewLoop);
+    }
+  })();
+
+})();
+</script>
+</body>
+</html>
