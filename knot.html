@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Knot</title>
+<style>
+  :root{
+    --bg1:#0b0f19;
+    --bg2:#111827;
+    --line-ok:#4fd1c5;
+    --line-bad:#f97583;
+    --node:#e5e7eb;
+    --node-drag:#fbbf24;
+    --accent:#8b5cf6;
+    --text:#cbd5e1;
+    --text-dim:#64748b;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; height:100%; overflow:hidden;
+    background:radial-gradient(circle at 50% 20%, var(--bg2), var(--bg1) 70%);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif;
+    color:var(--text);
+    touch-action:none;
+    user-select:none;
+  }
+  #ui{
+    position:fixed; top:0; left:0; right:0;
+    padding:calc(env(safe-area-inset-top) + 14px) 20px 10px 20px;
+    display:flex; justify-content:space-between; align-items:baseline;
+    z-index:10; pointer-events:none;
+  }
+  #title{
+    font-size:22px; font-weight:700; letter-spacing:1px; color:var(--text);
+    display:flex; align-items:center; gap:8px;
+  }
+  #title .dot{width:8px;height:8px;border-radius:50%;background:var(--accent); box-shadow:0 0 10px var(--accent);}
+  #stats{ font-size:14px; color:var(--text-dim); text-align:right; line-height:1.5;}
+  #stats b{color:var(--text); font-weight:600;}
+  #hint{
+    position:fixed; bottom:calc(env(safe-area-inset-bottom) + 18px);
+    left:0; right:0; text-align:center;
+    font-size:13px; color:var(--text-dim);
+    z-index:10; pointer-events:none;
+    transition:opacity .4s;
+  }
+  canvas{display:block; width:100vw; height:100vh;}
+
+  #winOverlay{
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:6px;
+    background:rgba(11,15,25,0.0);
+    opacity:0; pointer-events:none;
+    transition:opacity .35s;
+    z-index:20;
+  }
+  #winOverlay.show{ opacity:1; }
+  #winOverlay h2{
+    font-size:34px; margin:0; color:#fff; letter-spacing:1px;
+    text-shadow:0 0 24px var(--line-ok);
+  }
+  #winOverlay p{ margin:0; color:var(--text-dim); font-size:14px;}
+
+  #startOverlay{
+    position:fixed; inset:0; z-index:30;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 50% 30%, var(--bg2), var(--bg1) 75%);
+    text-align:center; padding:30px;
+  }
+  #startOverlay h1{
+    font-size:44px; margin:0 0 4px 0; letter-spacing:2px; color:#fff;
+    text-shadow:0 0 30px var(--accent);
+  }
+  #startOverlay p{ color:var(--text-dim); font-size:15px; max-width:280px; line-height:1.5; margin:14px 0 30px 0;}
+  #startBtn{
+    padding:14px 40px; border-radius:30px; border:none;
+    background:linear-gradient(135deg, var(--accent), #6366f1);
+    color:#fff; font-size:17px; font-weight:600;
+    box-shadow:0 6px 24px rgba(139,92,246,0.4);
+  }
+  #startBtn:active{ transform:scale(0.96); }
+</style>
+</head>
+<body>
+
+<div id="startOverlay">
+  <h1>Knot</h1>
+  <p>Entwirre die Linien. Ziehe die Punkte, bis sich keine zwei Linien mehr kreuzen.</p>
+  <button id="startBtn">Spiel starten</button>
+</div>
+
+<div id="ui">
+  <div id="title"><span class="dot"></span>Knot</div>
+  <div id="stats">
+    Level <b id="lvl">1</b><br>
+    <span id="crossCount">0</span> Kreuzungen
+  </div>
+</div>
+
+<canvas id="c"></canvas>
+<div id="hint">Ziehe einen Punkt, um ihn zu bewegen</div>
+
+<div id="winOverlay">
+  <h2>Gelöst ✓</h2>
+  <p>weiter zu Level <span id="nextLvl">2</span>…</p>
+</div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const lvlEl = document.getElementById('lvl');
+  const crossEl = document.getElementById('crossCount');
+  const hint = document.getElementById('hint');
+  const winOverlay = document.getElementById('winOverlay');
+  const nextLvlEl = document.getElementById('nextLvl');
+  const startOverlay = document.getElementById('startOverlay');
+  const startBtn = document.getElementById('startBtn');
+
+  let DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+  let W, H;
+  function resize(){
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W+'px'; canvas.style.height = H+'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const STORAGE_KEY = 'knot_level_v1';
+  let level = parseInt(localStorage.getItem(STORAGE_KEY) || '1', 10);
+
+  let nodes = [];   // {x,y,r}
+  let edges = [];   // [i,j]
+  let dragIdx = -1;
+  let solved = false;
+  let moveCount = 0;
+  let hintTimer = null;
+
+  function nodeCountForLevel(l){
+    return Math.min(6 + Math.floor((l-1)*0.7), 16);
+  }
+  function chordCountForLevel(l){
+    const n = nodeCountForLevel(l);
+    return Math.min(Math.floor(n * (0.4 + l*0.05)), Math.floor(n*1.3));
+  }
+
+  function segCross(a,b,c,d,n){
+    // a,b,c,d are cyclic positions 0..n-1 (edges as pairs), test if chords a-b and c-d cross on circle
+    let p = [a,b].sort((x,y)=>x-y);
+    let q = [c,d].sort((x,y)=>x-y);
+    let [p1,p2] = p, [q1,q2] = q;
+    const between = (x, lo, hi) => x>lo && x<hi;
+    const oneIn = between(q1,p1,p2) !== between(q2,p1,p2);
+    return oneIn;
+  }
+
+  function shareEndpoint(e1,e2){
+    return e1[0]===e2[0]||e1[0]===e2[1]||e1[1]===e2[0]||e1[1]===e2[1];
+  }
+
+  function generateLevel(l){
+    const n = nodeCountForLevel(l);
+    const chordTarget = chordCountForLevel(l);
+
+    // cyclic solved order = perm
+    let perm = [...Array(n).keys()];
+    for(let i=n-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [perm[i],perm[j]] = [perm[j],perm[i]];
+    }
+    // pos[nodeId] = index in cycle
+    let pos = new Array(n);
+    perm.forEach((id,i)=> pos[id]=i);
+
+    let edgeList = [];
+    // base cycle
+    for(let i=0;i<n;i++){
+      const a = perm[i], b = perm[(i+1)%n];
+      edgeList.push([a,b]);
+    }
+    // add non-crossing chords
+    let attempts = 0;
+    while(edgeList.length - n < chordTarget && attempts < 600){
+      attempts++;
+      const i = Math.floor(Math.random()*n);
+      let j = Math.floor(Math.random()*n);
+      if(i===j) continue;
+      const a = perm[i], b = perm[j];
+      if(edgeList.some(e => (e[0]===a&&e[1]===b)||(e[0]===b&&e[1]===a))) continue;
+      const pa = pos[a], pb = pos[b];
+      let ok = true;
+      for(const e of edgeList){
+        if(shareEndpoint(e,[a,b])) continue;
+        if(segCross(pa,pb,pos[e[0]],pos[e[1]],n)){ ok=false; break; }
+      }
+      if(ok) edgeList.push([a,b]);
+    }
+
+    edges = edgeList;
+
+    // scramble node positions randomly on screen
+    const margin = 60;
+    const topPad = 100, botPad = 90;
+    nodes = [];
+    for(let i=0;i<n;i++){
+      nodes.push({
+        x: margin + Math.random()*(W-2*margin),
+        y: topPad + Math.random()*(H-topPad-botPad),
+        r: 15
+      });
+    }
+    // ensure not solved already & no near-duplicate overlaps
+    let tries = 0;
+    while((countCrossings()===0 || tooClose()) && tries<40){
+      nodes.forEach(nd=>{
+        nd.x = margin + Math.random()*(W-2*margin);
+        nd.y = topPad + Math.random()*(H-topPad-botPad);
+      });
+      tries++;
+    }
+
+    moveCount = 0;
+    solved = false;
+    lvlEl.textContent = l;
+  }
+
+  function tooClose(){
+    for(let i=0;i<nodes.length;i++)
+      for(let j=i+1;j<nodes.length;j++){
+        const dx=nodes[i].x-nodes[j].x, dy=nodes[i].y-nodes[j].y;
+        if(Math.sqrt(dx*dx+dy*dy) < 40) return true;
+      }
+    return false;
+  }
+
+  function segIntersect(p1,p2,p3,p4){
+    function cross(o,a,b){ return (a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x); }
+    const d1 = cross(p3,p4,p1);
+    const d2 = cross(p3,p4,p2);
+    const d3 = cross(p1,p2,p3);
+    const d4 = cross(p1,p2,p4);
+    if(((d1>0&&d2<0)||(d1<0&&d2>0)) && ((d3>0&&d4<0)||(d3<0&&d4>0))) return true;
+    return false;
+  }
+
+  function countCrossings(){
+    let count = 0;
+    for(let i=0;i<edges.length;i++){
+      for(let j=i+1;j<edges.length;j++){
+        const e1=edges[i], e2=edges[j];
+        if(shareEndpoint(e1,e2)) continue;
+        const p1=nodes[e1[0]], p2=nodes[e1[1]], p3=nodes[e2[0]], p4=nodes[e2[1]];
+        if(segIntersect(p1,p2,p3,p4)) count++;
+      }
+    }
+    return count;
+  }
+
+  function edgeCrossFlags(){
+    // returns array parallel to edges: true if this edge crosses at least one other
+    let flags = edges.map(()=>false);
+    for(let i=0;i<edges.length;i++){
+      for(let j=i+1;j<edges.length;j++){
+        const e1=edges[i], e2=edges[j];
+        if(shareEndpoint(e1,e2)) continue;
+        const p1=nodes[e1[0]], p2=nodes[e1[1]], p3=nodes[e2[0]], p4=nodes[e2[1]];
+        if(segIntersect(p1,p2,p3,p4)){ flags[i]=true; flags[j]=true; }
+      }
+    }
+    return flags;
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    const flags = edgeCrossFlags();
+    const crossings = flags.filter(Boolean).length/2 | 0; // approx pairs, but we display real count below
+    const realCrossings = countCrossings();
+    crossEl.textContent = realCrossings;
+
+    // edges
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    edges.forEach((e,idx)=>{
+      const a = nodes[e[0]], b = nodes[e[1]];
+      const bad = flags[idx];
+      ctx.beginPath();
+      ctx.moveTo(a.x,a.y);
+      ctx.lineTo(b.x,b.y);
+      if(bad){
+        ctx.strokeStyle = 'rgba(249,117,131,0.85)';
+        ctx.shadowColor = 'rgba(249,117,131,0.6)';
+        ctx.shadowBlur = 8;
+      } else {
+        ctx.strokeStyle = 'rgba(79,209,197,0.85)';
+        ctx.shadowColor = 'rgba(79,209,197,0.5)';
+        ctx.shadowBlur = 8;
+      }
+      ctx.stroke();
+    });
+    ctx.shadowBlur = 0;
+
+    // nodes
+    nodes.forEach((nd,i)=>{
+      ctx.beginPath();
+      ctx.arc(nd.x, nd.y, nd.r, 0, Math.PI*2);
+      ctx.fillStyle = (i===dragIdx) ? '#fbbf24' : '#e5e7eb';
+      ctx.shadowColor = (i===dragIdx) ? 'rgba(251,191,36,0.7)' : 'rgba(229,231,235,0.35)';
+      ctx.shadowBlur = (i===dragIdx) ? 16 : 6;
+      ctx.fill();
+    });
+    ctx.shadowBlur = 0;
+
+    if(!solved && realCrossings===0){
+      triggerWin();
+    }
+  }
+
+  function triggerWin(){
+    solved = true;
+    nextLvlEl.textContent = level+1;
+    winOverlay.classList.add('show');
+    setTimeout(()=>{
+      level++;
+      localStorage.setItem(STORAGE_KEY, String(level));
+      generateLevel(level);
+      winOverlay.classList.remove('show');
+    }, 1300);
+  }
+
+  function loop(){
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // pointer handling
+  function getPos(e){
+    const t = (e.touches && e.touches[0]) || e;
+    return { x: t.clientX, y: t.clientY };
+  }
+  function findNode(p){
+    let best=-1, bestD=1e9;
+    nodes.forEach((nd,i)=>{
+      const dx=nd.x-p.x, dy=nd.y-p.y;
+      const d = Math.sqrt(dx*dx+dy*dy);
+      if(d < nd.r*2.4 && d<bestD){ bestD=d; best=i; }
+    });
+    return best;
+  }
+
+  function onDown(e){
+    if(solved) return;
+    const p = getPos(e);
+    const idx = findNode(p);
+    if(idx>=0){
+      dragIdx = idx;
+      hint.style.opacity = '0';
+      e.preventDefault && e.preventDefault();
+    }
+  }
+  function onMove(e){
+    if(dragIdx<0) return;
+    const p = getPos(e);
+    nodes[dragIdx].x = Math.max(20, Math.min(W-20, p.x));
+    nodes[dragIdx].y = Math.max(70, Math.min(H-40, p.y));
+    e.preventDefault && e.preventDefault();
+  }
+  function onUp(){
+    if(dragIdx>=0) moveCount++;
+    dragIdx = -1;
+  }
+
+  canvas.addEventListener('touchstart', onDown, {passive:false});
+  canvas.addEventListener('touchmove', onMove, {passive:false});
+  canvas.addEventListener('touchend', onUp, {passive:false});
+  canvas.addEventListener('mousedown', onDown);
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+
+  startBtn.addEventListener('click', ()=>{
+    startOverlay.style.display = 'none';
+    generateLevel(level);
+    loop();
+    hintTimer = setTimeout(()=>{ hint.style.opacity='0'; }, 4000);
+  });
+
+})();
+</script>
+</body>
+</html>
