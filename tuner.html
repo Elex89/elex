@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Gitarrenstimmer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --walnut-dark:#1b1410;
+    --walnut:#2b1f17;
+    --walnut-light:#3d2c1f;
+    --parchment:#ece1c8;
+    --parchment-dim:#cbbd9d;
+    --brass:#c9a227;
+    --brass-bright:#e8c85a;
+    --ink:#2a2016;
+    --good:#5f9a6e;
+    --warn:#d1a13a;
+    --bad:#c1452e;
+  }
+
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--walnut-dark);
+    overscroll-behavior-y:contain;
+    touch-action:manipulation;
+  }
+
+  body{
+    font-family:'JetBrains Mono', monospace;
+    color:var(--parchment);
+    display:flex;
+    justify-content:center;
+    min-height:100dvh;
+  }
+
+  .app{
+    width:100%;
+    max-width:480px;
+    min-height:100dvh;
+    padding:
+      max(env(safe-area-inset-top),22px)
+      max(env(safe-area-inset-right),18px)
+      max(env(safe-area-inset-bottom),18px)
+      max(env(safe-area-inset-left),18px);
+    display:flex;
+    flex-direction:column;
+    background:
+      radial-gradient(ellipse at 50% -10%, rgba(201,162,39,0.09), transparent 60%),
+      repeating-linear-gradient(100deg, rgba(0,0,0,0.10) 0px, rgba(0,0,0,0.10) 1px, transparent 2px, transparent 6px),
+      linear-gradient(160deg, var(--walnut) 0%, var(--walnut-dark) 70%);
+    position:relative;
+    overflow:hidden;
+  }
+
+  .eyebrow{
+    font-size:11px;
+    letter-spacing:0.32em;
+    text-transform:uppercase;
+    color:var(--brass);
+    text-align:center;
+    opacity:0.85;
+  }
+
+  .subeyebrow{
+    text-align:center;
+    font-size:10px;
+    color:var(--parchment-dim);
+    letter-spacing:0.18em;
+    margin-top:2px;
+    opacity:0.6;
+  }
+
+  .stage{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    padding:8px 0 4px;
+  }
+
+  .note-wrap{
+    display:flex;
+    align-items:baseline;
+    gap:6px;
+    line-height:1;
+  }
+
+  .note-letter{
+    font-family:'Fraunces', serif;
+    font-weight:700;
+    font-size:min(26vw,128px);
+    font-variant-ligatures:none;
+    color:var(--parchment);
+    text-shadow:0 2px 0 rgba(0,0,0,0.4), 0 0 34px rgba(232,200,90,0.12);
+    transition:color 0.15s ease;
+    min-width:1ch;
+    text-align:center;
+  }
+
+  .accidental{
+    font-family:'Fraunces', serif;
+    font-weight:500;
+    font-size:min(9vw,42px);
+    color:var(--brass-bright);
+    align-self:flex-start;
+    margin-top:0.35em;
+  }
+
+  .octave{
+    font-family:'Fraunces', serif;
+    font-weight:500;
+    font-size:min(9vw,40px);
+    color:var(--parchment-dim);
+    align-self:flex-end;
+    margin-bottom:0.15em;
+  }
+
+  .freq-readout{
+    font-size:14px;
+    letter-spacing:0.08em;
+    color:var(--parchment-dim);
+    margin-top:2px;
+  }
+  .freq-readout .hz{ color:var(--brass); font-weight:700; }
+
+  .gauge-wrap{
+    position:relative;
+    width:min(84vw, 340px);
+    aspect-ratio:2/1.15;
+    margin-top:14px;
+  }
+
+  .gauge-wrap svg{ width:100%; height:100%; display:block; overflow:visible; }
+
+  .needle{
+    position:absolute;
+    left:50%;
+    bottom:6%;
+    width:3px;
+    height:78%;
+    background:linear-gradient(to top, var(--brass-bright), rgba(232,200,90,0.15));
+    transform-origin:bottom center;
+    transform:translateX(-50%) rotate(0deg);
+    border-radius:3px;
+    transition:transform 0.09s cubic-bezier(.3,.6,.3,1), background 0.2s ease;
+    box-shadow:0 0 8px rgba(232,200,90,0.5);
+  }
+
+  .pivot{
+    position:absolute;
+    left:50%; bottom:6%;
+    width:16px; height:16px;
+    background:radial-gradient(circle at 35% 30%, #f3dd8a, var(--brass) 60%, #7a5e14 100%);
+    border-radius:50%;
+    transform:translate(-50%,50%);
+    box-shadow:0 1px 3px rgba(0,0,0,0.6);
+  }
+
+  .status-label{
+    margin-top:14px;
+    font-size:12px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    padding:6px 16px;
+    border-radius:99px;
+    border:1px solid rgba(236,225,200,0.18);
+    color:var(--parchment-dim);
+    transition:all 0.2s ease;
+    min-height:14px;
+    text-align:center;
+  }
+  .status-label.good{ color:var(--good); border-color:rgba(95,154,110,0.55); box-shadow:0 0 14px rgba(95,154,110,0.25); }
+  .status-label.warn{ color:var(--warn); border-color:rgba(209,161,58,0.5); }
+  .status-label.bad{ color:var(--bad); border-color:rgba(193,69,46,0.5); }
+
+  .strings{
+    display:grid;
+    grid-template-columns:repeat(6,1fr);
+    gap:8px;
+    margin:18px 0 6px;
+  }
+
+  .peg{
+    background:linear-gradient(160deg, #3a2c1c, #251a10);
+    border:1px solid rgba(201,162,39,0.35);
+    border-radius:12px;
+    padding:9px 2px 8px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:2px;
+    color:var(--parchment);
+    font-family:'JetBrains Mono', monospace;
+    cursor:pointer;
+    user-select:none;
+    transition:transform 0.08s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .peg:active{ transform:scale(0.94); }
+  .peg .p-note{ font-weight:700; font-size:15px; }
+  .peg .p-oct{ font-size:9px; color:var(--parchment-dim); }
+  .peg.playing{
+    border-color:var(--brass-bright);
+    box-shadow:0 0 12px rgba(232,200,90,0.45);
+  }
+  .peg.target{
+    border-color:var(--brass);
+  }
+
+  .startbar{
+    margin-top:auto;
+    padding-top:10px;
+  }
+
+  .start-btn{
+    width:100%;
+    padding:16px;
+    border-radius:14px;
+    border:none;
+    background:linear-gradient(160deg, var(--brass-bright), var(--brass));
+    color:var(--ink);
+    font-family:'JetBrains Mono', monospace;
+    font-weight:700;
+    font-size:15px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    box-shadow:0 6px 18px rgba(0,0,0,0.35);
+  }
+  .start-btn:active{ transform:translateY(1px); }
+  .start-btn.listening{
+    background:linear-gradient(160deg, #4a3826, #2b1f17);
+    color:var(--parchment-dim);
+    border:1px solid rgba(201,162,39,0.4);
+  }
+
+  .error-msg{
+    margin-top:10px;
+    font-size:11.5px;
+    line-height:1.5;
+    color:var(--bad);
+    text-align:center;
+    display:none;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="eyebrow">Gitarrenstimmer</div>
+  <div class="subeyebrow">Standardstimmung · E A D G B E</div>
+
+  <div class="stage">
+    <div class="note-wrap">
+      <div class="note-letter" id="noteLetter">–</div>
+      <div class="accidental" id="accidental"></div>
+      <div class="octave" id="octave"></div>
+    </div>
+    <div class="freq-readout" id="freqReadout">— <span class="hz">Hz</span></div>
+
+    <div class="gauge-wrap">
+      <svg viewBox="0 0 200 115">
+        <!-- tick marks -->
+        <g id="ticks" stroke="#cbbd9d" stroke-opacity="0.55"></g>
+        <path d="M 14 108 A 86 86 0 0 1 186 108" fill="none" stroke="#c9a227" stroke-opacity="0.35" stroke-width="1.5"/>
+      </svg>
+      <div class="needle" id="needle"></div>
+      <div class="pivot"></div>
+    </div>
+
+    <div class="status-label" id="statusLabel">Bereit</div>
+  </div>
+
+  <div class="strings" id="strings"></div>
+
+  <div class="startbar">
+    <button class="start-btn" id="startBtn">Mikrofon aktivieren</button>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const NOTE_STRINGS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  const GUITAR_STRINGS = [
+    { name:"E", oct:2, freq:82.41 },
+    { name:"A", oct:2, freq:110.00 },
+    { name:"D", oct:3, freq:146.83 },
+    { name:"G", oct:3, freq:196.00 },
+    { name:"B", oct:3, freq:246.94 },
+    { name:"E", oct:4, freq:329.63 },
+  ];
+
+  const noteLetterEl = document.getElementById('noteLetter');
+  const accidentalEl = document.getElementById('accidental');
+  const octaveEl = document.getElementById('octave');
+  const freqReadoutEl = document.getElementById('freqReadout');
+  const needleEl = document.getElementById('needle');
+  const statusEl = document.getElementById('statusLabel');
+  const startBtn = document.getElementById('startBtn');
+  const errorMsg = document.getElementById('errorMsg');
+  const stringsEl = document.getElementById('strings');
+  const ticksSvg = document.getElementById('ticks');
+
+  // build tick marks on the gauge, -50..50 cents mapped to -50..50 deg
+  (function buildTicks(){
+    const cx = 100, cy = 108, r1 = 86, r2 = 96;
+    for(let c=-50; c<=50; c+=10){
+      const angle = (c/50) * 50 * (Math.PI/180);
+      const isMajor = (c % 20 === 0);
+      const rInner = isMajor ? r1-8 : r1-4;
+      const x1 = cx + rInner * Math.sin(angle);
+      const y1 = cy - rInner * Math.cos(angle);
+      const x2 = cx + r2 * Math.sin(angle);
+      const y2 = cy - r2 * Math.cos(angle);
+      const line = document.createElementNS("http://www.w3.org/2000/svg","line");
+      line.setAttribute("x1",x1); line.setAttribute("y1",y1);
+      line.setAttribute("x2",x2); line.setAttribute("y2",y2);
+      line.setAttribute("stroke-width", isMajor ? 2 : 1);
+      if(c===0) line.setAttribute("stroke","#5f9a6e");
+      ticksSvg.appendChild(line);
+    }
+  })();
+
+  // build string reference pegs
+  GUITAR_STRINGS.forEach((s, i) => {
+    const peg = document.createElement('div');
+    peg.className = 'peg';
+    peg.innerHTML = `<div class="p-note">${s.name}</div><div class="p-oct">${s.oct}</div>`;
+    peg.addEventListener('click', () => playReference(s.freq, peg));
+    stringsEl.appendChild(peg);
+  });
+
+  let audioCtx = null;
+  let analyser = null;
+  let micStream = null;
+  let dataArray = null;
+  let running = false;
+  let rafId = null;
+
+  function playReference(freq, pegEl){
+    if(!audioCtx){
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+
+    document.querySelectorAll('.peg').forEach(p => p.classList.remove('playing'));
+    pegEl.classList.add('playing');
+
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.22, audioCtx.currentTime + 0.05);
+    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.5);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 1.55);
+    setTimeout(() => pegEl.classList.remove('playing'), 1550);
+  }
+
+  async function startListening(){
+    try{
+      errorMsg.style.display = 'none';
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if(audioCtx.state === 'suspended') await audioCtx.resume();
+
+      micStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation:false,
+          noiseSuppression:false,
+          autoGainControl:false
+        }
+      });
+
+      const source = audioCtx.createMediaStreamSource(micStream);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      source.connect(analyser);
+      dataArray = new Float32Array(analyser.fftSize);
+
+      running = true;
+      startBtn.textContent = 'Mikrofon aktiv';
+      startBtn.classList.add('listening');
+      statusEl.textContent = 'Spiele eine Saite';
+      updatePitch();
+    }catch(err){
+      errorMsg.style.display = 'block';
+      errorMsg.textContent = 'Mikrofonzugriff nicht möglich. Auf dem iPhone benötigt Safari eine https-Verbindung und deine Erlaubnis für das Mikrofon (Einstellungen > Safari > Mikrofon).';
+    }
+  }
+
+  startBtn.addEventListener('click', () => {
+    if(!running) startListening();
+  });
+
+  function autoCorrelate(buf, sampleRate){
+    const SIZE = buf.length;
+    let rms = 0;
+    for(let i=0;i<SIZE;i++){ rms += buf[i]*buf[i]; }
+    rms = Math.sqrt(rms/SIZE);
+    if(rms < 0.012) return -1;
+
+    let r1 = 0, r2 = SIZE-1;
+    const thres = 0.2;
+    for(let i=0;i<SIZE/2;i++){ if(Math.abs(buf[i]) < thres){ r1 = i; break; } }
+    for(let i=1;i<SIZE/2;i++){ if(Math.abs(buf[SIZE-i]) < thres){ r2 = SIZE-i; break; } }
+
+    const trimmed = buf.slice(r1, r2);
+    const newSize = trimmed.length;
+    const c = new Array(newSize).fill(0);
+    for(let i=0;i<newSize;i++){
+      for(let j=0;j<newSize-i;j++){
+        c[i] += trimmed[j]*trimmed[j+i];
+      }
+    }
+
+    let d = 0;
+    while(d < c.length-1 && c[d] > c[d+1]) d++;
+    let maxVal = -1, maxPos = -1;
+    for(let i=d;i<newSize;i++){
+      if(c[i] > maxVal){ maxVal = c[i]; maxPos = i; }
+    }
+    let T0 = maxPos;
+    if(T0 <= 0) return -1;
+
+    const x1 = c[T0-1] || 0, x2 = c[T0], x3 = c[T0+1] || 0;
+    const a = (x1 + x3 - 2*x2) / 2;
+    const b = (x3 - x1) / 2;
+    if(a) T0 = T0 - b/(2*a);
+
+    if(T0 <= 0) return -1;
+    return sampleRate / T0;
+  }
+
+  function noteNumberFromPitch(freq){
+    return 12 * (Math.log(freq/440)/Math.LN2) + 69;
+  }
+  function frequencyFromNoteNumber(note){
+    return 440 * Math.pow(2, (note-69)/12);
+  }
+
+  let smoothCents = 0;
+  let lastRenderedNote = null;
+
+  function updatePitch(){
+    if(!running) return;
+    analyser.getFloatTimeDomainData(dataArray);
+    const freq = autoCorrelate(dataArray, audioCtx.sampleRate);
+
+    if(freq === -1){
+      statusEl.textContent = 'Spiele eine Saite';
+      statusEl.className = 'status-label';
+    } else {
+      const noteNum = noteNumberFromPitch(freq);
+      const roundedNote = Math.round(noteNum);
+      const targetFreq = frequencyFromNoteNumber(roundedNote);
+      let cents = 1200 * Math.log(freq/targetFreq) / Math.LN2;
+      cents = Math.max(-50, Math.min(50, cents));
+      smoothCents += (cents - smoothCents) * 0.35;
+
+      const name = NOTE_STRINGS[(roundedNote % 12 + 12) % 12];
+      const octave = Math.floor(roundedNote/12) - 1;
+      const hasSharp = name.includes('#');
+
+      noteLetterEl.textContent = hasSharp ? name[0] : name;
+      accidentalEl.textContent = hasSharp ? '♯' : '';
+      octaveEl.textContent = octave;
+      freqReadoutEl.innerHTML = freq.toFixed(1) + ' <span class="hz">Hz</span>';
+
+      const angle = (smoothCents/50) * 50;
+      needleEl.style.transform = `translateX(-50%) rotate(${angle}deg)`;
+
+      const absCents = Math.abs(smoothCents);
+      if(absCents < 4){
+        statusEl.textContent = 'Perfekt gestimmt';
+        statusEl.className = 'status-label good';
+        needleEl.style.background = 'linear-gradient(to top, #8fe0a0, rgba(95,154,110,0.2))';
+      } else if(absCents < 15){
+        statusEl.textContent = smoothCents > 0 ? 'Leicht zu hoch' : 'Leicht zu tief';
+        statusEl.className = 'status-label warn';
+        needleEl.style.background = 'linear-gradient(to top, #e8c85a, rgba(232,200,90,0.2))';
+      } else {
+        statusEl.textContent = smoothCents > 0 ? 'Zu hoch' : 'Zu tief';
+        statusEl.className = 'status-label bad';
+        needleEl.style.background = 'linear-gradient(to top, #e07a5f, rgba(193,69,46,0.2))';
+      }
+    }
+
+    rafId = requestAnimationFrame(updatePitch);
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden && audioCtx) audioCtx.suspend();
+    else if(!document.hidden && audioCtx && running) audioCtx.resume();
+  });
+})();
+</script>
+</body>
+</html>
