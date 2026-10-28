@@ -208,9 +208,6 @@
   ];
 
   const SHAPES = [
-    [[0,0]],
-    [[0,0],[0,1]],
-    [[0,0],[1,0]],
     [[0,0],[0,1],[0,2]],
     [[0,0],[1,0],[2,0]],
     [[0,0],[0,1],[0,2],[0,3]],
@@ -308,16 +305,138 @@
     return {h, w};
   }
 
-  function genPiece(){
-    const raw = SHAPES[Math.floor(Math.random()*SHAPES.length)];
-    const shape = normalizeShape(raw);
+  const NORM_SHAPES = SHAPES.map(normalizeShape);
+  const NEIGHBORS = [[1,0],[-1,0],[0,1],[0,-1]];
+
+  function makePiece(shape){
     const colors = shape.map(()=> COLORS[Math.floor(Math.random()*COLORS.length)]);
     return { shape, colors };
   }
 
+  function boardFits(b, shape, r0, c0){
+    for(const [dr,dc] of shape){
+      const r = r0+dr, c = c0+dc;
+      if(r<0 || r>=SIZE || c<0 || c>=SIZE || b[r][c]) return false;
+    }
+    return true;
+  }
+
+  function applyShape(b, shape, r0, c0){
+    const nb = b.map(row=>row.slice());
+    shape.forEach(([dr,dc])=>{ nb[r0+dr][c0+dc] = true; });
+    return nb;
+  }
+
+  // Entfernt volle Zeilen/Spalten (nur Linien, für schnelle Simulation)
+  function clearLinesOn(b){
+    const rows = [], cols = [];
+    for(let r=0;r<SIZE;r++) if(b[r].every(v=>v)) rows.push(r);
+    for(let c=0;c<SIZE;c++){
+      let full = true;
+      for(let r=0;r<SIZE;r++) if(!b[r][c]){ full=false; break; }
+      if(full) cols.push(c);
+    }
+    if(!rows.length && !cols.length) return {board:b, lines:0};
+    const nb = b.map(row=>row.slice());
+    rows.forEach(r=>{ for(let c=0;c<SIZE;c++) nb[r][c] = null; });
+    cols.forEach(c=>{ for(let r=0;r<SIZE;r++) nb[r][c] = null; });
+    return {board:nb, lines:rows.length + cols.length};
+  }
+
+  // Bewertet eine Form auf dem aktuellen Feld: wie oft passt sie, wie gut ist die beste Position?
+  function evaluateShape(b, shape){
+    const {h, w} = shapeDims(shape);
+    let count = 0, bestLines = 0, bestContact = 0;
+    for(let r=0;r<=SIZE-h;r++){
+      for(let c=0;c<=SIZE-w;c++){
+        if(!boardFits(b, shape, r, c)) continue;
+        count++;
+        const lines = clearLinesOn(applyShape(b, shape, r, c)).lines;
+        const inShape = new Set(shape.map(([dr,dc])=>(r+dr)+','+(c+dc)));
+        let contact = 0;
+        shape.forEach(([dr,dc])=>{
+          NEIGHBORS.forEach(([a,d])=>{
+            const nr = r+dr+a, nc = c+dc+d;
+            if(inShape.has(nr+','+nc)) return;
+            if(nr<0 || nr>=SIZE || nc<0 || nc>=SIZE || b[nr][nc]) contact++;
+          });
+        });
+        if(lines > bestLines) bestLines = lines;
+        if(contact > bestContact) bestContact = contact;
+      }
+    }
+    return {count, bestLines, bestContact};
+  }
+
+  function buildCandidates(b){
+    let filled = 0;
+    for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++) if(b[r][c]) filled++;
+    const fill = filled / (SIZE*SIZE);
+    const cands = [];
+    NORM_SHAPES.forEach(shape=>{
+      const ev = evaluateShape(b, shape);
+      if(!ev.count) return;
+      // Je voller das Feld, desto kleiner die bevorzugten Formen
+      const sizeF = Math.pow(shape.length, -fill*1.5);
+      // Formen, die Linien vervollständigen oder eng anliegen, sind besser
+      const qual = 1 + ev.bestLines*3 + ev.bestContact/shape.length;
+      cands.push({shape, w: sizeF*qual});
+    });
+    return cands;
+  }
+
+  function pickFrom(cands){
+    if(!cands.length) return null;
+    const smart = Math.random() < 0.8; // überwiegend gut passende, ab und zu Zufall
+    const weight = c => smart ? c.w : 1;
+    const total = cands.reduce((s,c)=>s+weight(c), 0);
+    let t = Math.random()*total;
+    for(const c of cands){
+      t -= weight(c);
+      if(t <= 0) return c.shape;
+    }
+    return cands[cands.length-1].shape;
+  }
+
+  // Prüft, ob sich alle drei Formen nacheinander (in beliebiger Reihenfolge) platzieren lassen
+  function canSolve(b, shapes){
+    let budget = 30000;
+    function dfs(bd, remaining){
+      if(!remaining.length) return true;
+      for(let i=0;i<remaining.length;i++){
+        const shape = remaining[i];
+        const rest = remaining.filter((_,j)=>j!==i);
+        const {h, w} = shapeDims(shape);
+        for(let r=0;r<=SIZE-h;r++){
+          for(let c=0;c<=SIZE-w;c++){
+            if(!boardFits(bd, shape, r, c)) continue;
+            if(--budget < 0) return false;
+            if(dfs(clearLinesOn(applyShape(bd, shape, r, c)).board, rest)) return true;
+          }
+        }
+      }
+      return false;
+    }
+    return dfs(b, shapes);
+  }
+
+  function generateTray(){
+    const cands = buildCandidates(board);
+    if(!cands.length) return [0,1,2].map(()=>makePiece(NORM_SHAPES[0]));
+    for(let attempt=0; attempt<40; attempt++){
+      const shapes = [pickFrom(cands), pickFrom(cands), pickFrom(cands)];
+      if(shapes[0]===shapes[1] && shapes[1]===shapes[2]) continue;
+      if(canSolve(board, shapes)) return shapes.map(makePiece);
+    }
+    // Notfall: kleine Formen, die sicher passen
+    const smalls = cands.filter(c=>c.shape.length <= 3);
+    const pool = smalls.length ? smalls : cands;
+    return [0,1,2].map(()=>makePiece(pool[Math.floor(Math.random()*pool.length)].shape));
+  }
+
   function refillTrayIfNeeded(){
     if(trayPieces.every(p=>p===null)){
-      trayPieces = [genPiece(), genPiece(), genPiece()];
+      trayPieces = generateTray();
     }
     renderTray();
     checkGameOver();
