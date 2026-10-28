@@ -28,7 +28,8 @@ h2{margin:18px 0 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercas
 .bar span{flex:1;font-size:12px;color:var(--mu)}.bar button{padding:12px 16px;border:0;border-radius:12px;background:#2a3050;color:#fff;font:inherit}
 .bar #dok{background:var(--ac)}
 #quit{position:fixed;top:max(10px,env(safe-area-inset-top));right:max(10px,env(safe-area-inset-right));width:40px;height:40px;border-radius:50%;border:0;background:rgba(0,0,0,.4);color:#fff;font-size:18px}
-#bI{right:max(14px,env(safe-area-inset-right));bottom:calc(min(26vw,104px) + 30px + env(safe-area-inset-bottom));width:72px;height:72px;font-size:36px}
+#bI{right:calc(max(14px,env(safe-area-inset-right)) + min(26vw,104px) + 12px);bottom:calc(min(26vw,104px) + 30px + env(safe-area-inset-bottom));width:min(26vw,104px);height:min(26vw,104px);font-size:40px}
+.gy #bI{right:auto;left:max(14px,env(safe-area-inset-left))}
 #back{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(min(26vw,104px) + 36px + env(safe-area-inset-bottom));padding:15px 22px;border:0;border-radius:16px;background:#ffb020;color:#111;font-weight:800;font-size:17px;font-family:inherit;z-index:5;box-shadow:0 4px 18px rgba(0,0,0,.4)}
 .b{position:fixed;bottom:max(18px,env(safe-area-inset-bottom));width:min(26vw,104px);height:min(26vw,104px);border-radius:50%;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.32);display:flex;align-items:center;justify-content:center;font-size:30px;color:#fff;font-weight:800}
 .b.d{background:rgba(255,255,255,.34)}
@@ -50,8 +51,12 @@ h2{margin:18px 0 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercas
 <div class="hint" id="hs"></div>
 <h2>Runden</h2><div id="laps" class="row"></div>
 <h2>Motor</h2><div id="cc" class="row"></div>
+<h2>Gegner</h2><div id="no" class="row"></div>
+<h2>Wetter</h2><div id="wx" class="row"></div>
+<h2>Spurhalteassistent</h2><div id="la" class="row"></div><div class="hint">Hilft beim Spurhalten – je stärker, desto schwächer werden die Gegner.</div>
 <h2>Steuerung</h2><div id="ctl" class="row"></div>
 <label class="hint" style="display:block"><input type="checkbox" id="inv"> Gyro-Lenkung invertieren (falls verkehrt herum)</label>
+<div class="hint">Gyro-Lenkintensität: <b id="sv">100 %</b> (links: mehr neigen · rechts: weniger neigen)</div><input type="range" id="sens" min="50" max="150" value="100" style="width:100%">
 <div class="hint" id="pad">🎮 Bluetooth-Controller: einfach verbinden und eine Taste drücken – er wird automatisch erkannt (Stick/Steuerkreuz = lenken, A/RT = Gas, B/LT = Bremse).</div>
 <button class="big" id="go">Rennen starten</button>
 </div></div>
@@ -74,9 +79,9 @@ const TH=[
 {n:'🏖️ Strandpromenade',L:5600,f:t=>1+.3*Math.cos(2*t)+.08*Math.cos(4*t),g:['#f0d9a0','#e8cf92'],s:['#37b6ff','#d8f4ff'],m:'#7fd0c8',t:'#2fae6a'},
 {n:'🌋 Lava-Canyon',L:6000,f:t=>1+.14*Math.cos(3*t+.4)+.12*Math.cos(2*t)+.06*Math.sin(6*t),g:['#5a1a12','#4c150f'],s:['#2a0a0a','#b3321a'],m:'#3a1410',t:'#ff6a1a'},
 {n:'🏆 Grand Prix',L:7000,f:t=>1+.2*Math.cos(2*t)+.1*Math.cos(3*t+1)+.06*Math.sin(5*t),g:['#3f9b45','#369040'],s:['#4a9dff','#cfeaff'],m:'#5f8f9a',t:'#2f8f3a'}];
-const sel={ch:0,tr:0,lp:3,ctl:'classic',cc:1,md:0};
+const sel={ch:0,tr:0,lp:3,ctl:'classic',cc:1,md:0,no:7,wx:0,la:0,sens:1};
 const CUS=99;
-let TOPV=110,offT=0,MD=0,COIN=[],BX=[],HZ=[],lastLap=-1,lapS=0,bestLap=1e9,itemHeld=0;
+let TOPV=110,DT=.016,WP=[],AIF=1,offT=0,MD=0,COIN=[],BX=[],HZ=[],lastLap=-1,lapS=0,bestLap=1e9,itemHeld=0;
 
 function rs(){const r=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;cv.width=W*r;cv.height=H*r;cx.setTransform(r,0,0,r,0,0);dc.width=W;dc.height=Math.max(100,H-64)}
 addEventListener('resize',rs);
@@ -89,6 +94,9 @@ function ui(){
  $('#md').innerHTML=['🏁 Rennen','🪙 Münzen','🎁 Chaos-Cup'].map((a,i)=>`<button class="c${sel.md==i?' on':''}" data-k="md" data-i="${i}">${a}</button>`).join('');
  $('#mdh').textContent=['Klassisches Rennen gegen 7 Gegner.','Sammle Münzen: jede macht dich etwas schneller (bis +12 %). Sie kommen jede Runde wieder.','Fahre durch Boxen und nutze Items: 🍌 Banane, 🐢 Panzer, ⚡ Blitz, 🍄 Pilz.'][sel.md];
  $('#hs').textContent=sel.tr==CUS?'Eigene Strecken: keine Rekorde.':(()=>{const a=hg('L|'+TH[sel.tr].n+'|'+sel.cc),b=hg(kT());return'🏆 '+(sel.md==1?'Münzen: '+(b==null?'–':b):'Bestzeit: '+(b==null?'–':ft(b)))+' · Beste Runde: '+(a==null?'–':ft(a))})();
+ $('#no').innerHTML=[0,1,2,3,4,5,6,7].map(n=>`<button class="c${sel.no==n?' on':''}" data-k="no" data-i="${n}">${n}</button>`).join('');
+ $('#wx').innerHTML=['☀️ Sonne','🌧️ Regen','❄️ Schnee'].map((a,i)=>`<button class="c${sel.wx==i?' on':''}" data-k="wx" data-i="${i}">${a}</button>`).join('');
+ $('#la').innerHTML=['Aus','Leicht','Mittel','Stark'].map((a,i)=>`<button class="c${sel.la==i?' on':''}" data-k="la" data-i="${i}">${a}</button>`).join('');
  $('#cc').innerHTML=['🐢 Eco · 50 ccm','🚗 Sport · 100 ccm','🚀 Turbo · 150 ccm'].map((a,i)=>`<button class="c${sel.cc==i?' on':''}" data-k="cc" data-i="${i}">${a}</button>`).join('');
  $('#ctl').innerHTML=[['classic','🕹️ Klassisch (Touch)'],['gyro','📱 Gyro (Neigen)']].map(a=>`<button class="c${sel.ctl==a[0]?' on':''}" data-k="ctl" data-i="${a[0]}">${a[1]}</button>`).join('');
 }
@@ -136,7 +144,7 @@ const ft=t=>(t/60|0)+':'+(t%60).toFixed(2).padStart(5,'0');
 function hg(k){try{return JSON.parse(localStorage.getItem('kr')||'{}')[k]}catch(e){}}
 function hs(k,v,f){try{const d=JSON.parse(localStorage.getItem('kr')||'{}');if(d[k]==null||f(v,d[k])){d[k]=v;localStorage.setItem('kr',JSON.stringify(d));return 1}}catch(e){}return 0}
 function kT(){return`T|${sel.md}|${TH[sel.tr].n}|${sel.lp}|${sel.cc}`}
-function recs(){if(sel.tr==CUS)return'';const a=hs('L|'+TH[sel.tr].n+'|'+sel.cc,bestLap,(v,o)=>v<o),b=MD==1?hs(kT(),P.coins,(v,o)=>v>o):hs(kT(),P.fin,(v,o)=>v<o);return(a?' · 🏆 Rundenrekord!':'')+(b?' · 🏆 Streckenrekord!':'')}
+function recs(){if(sel.tr==CUS||sel.la)return' · (Rekorde nur ohne Spurhalteassistent)';const a=hs('L|'+TH[sel.tr].n+'|'+sel.cc,bestLap,(v,o)=>v<o),b=MD==1?hs(kT(),P.coins,(v,o)=>v>o):hs(kT(),P.fin,(v,o)=>v<o);return(a?' · 🏆 Rundenrekord!':'')+(b?' · 🏆 Streckenrekord!':'')}
 function setup(){COIN=[];BX=[];HZ=[];lastLap=-1;lapS=0;bestLap=1e9;
  if(MD==1)for(let i=0;i<N;i+=5){const l=Math.sin(i*.09)*RW*.28;COIN.push({i,x:X[i]+NX[i]*l,y:Y[i]+NY[i]*l,on:1})}
  if(MD==2)for(let i=40;i<N-20;i+=Math.floor(N/9))for(const l of[-.28,0,.28])BX.push({x:X[i]+NX[i]*l*RW,y:Y[i]+NY[i]*l*RW,t:0});
@@ -145,23 +153,32 @@ function hit(k){k.spin=1.1;k.v*=.25;if(k==P)beep(180,.3)}
 function use(k){const it=k.item;if(!it)return;k.item='';
  if(it=='🍌')HZ.push({t:0,x:k.x-Math.cos(k.a)*12,y:k.y-Math.sin(k.a)*12,l:40,o:k});
  else if(it=='🐢'){const j=(k.idx+4)%N,l=clamp(k.lat,-RW*.4,RW*.4);HZ.push({t:1,i:k.idx+4,lat:l,x:X[j]+NX[j]*l,y:Y[j]+NY[j]*l,l:6,o:k})}
+ else if(it=='🔴'){let tg=null;for(const o of karts)if(o!=k&&o.prog>k.prog&&(!tg||o.prog<tg.prog))tg=o;if(tg)HZ.push({t:2,tg,x:k.x,y:k.y,l:12,o:k});else{k.item='🐢';use(k)}}
  else if(it=='⚡'){for(const o of karts)if(o!=k){o.slow=3;o.v*=.7}beep(300,.4)}
  else k.boost=1.3}
 function deco(o,p,s){const t=o[1],e=o[3];cx.textAlign='center';cx.textBaseline='alphabetic';
  if(t==2){const w=Math.abs(Math.cos(rt*5+e.i))+.15;cx.fillStyle='#ffd23a';cx.strokeStyle='#b8860b';cx.lineWidth=Math.max(1,s*.4);cx.beginPath();cx.ellipse(p[0],p[1]-4*s,2.2*s*w,2.2*s,0,0,7);cx.fill();cx.stroke()}
  else if(t==3){const w=Math.abs(Math.cos(rt*2))*.6+.4;cx.fillStyle='#3a5bff';cx.fillRect(p[0]-2.6*s*w,p[1]-7*s,5.2*s*w,5.2*s);cx.fillStyle='#fff';cx.font=`800 ${4*s}px sans-serif`;cx.fillText('?',p[0],p[1]-2.8*s)}
- else{cx.font=(5*s)+'px sans-serif';cx.fillText(e.t?'🐢':'🍌',p[0],p[1])}}
+ else{cx.font=(5*s)+'px sans-serif';cx.fillText(['🍌','🐢','🔴'][e.t],p[0],p[1])}}
+const DTX=0;
+function assist(k,s){const w=[0,.3,.55,.85][sel.la];if(!w||k.spin>0)return s;const j=(k.idx+6+(Math.abs(k.v)/20|0))%N,sa=clamp(-angd(Math.atan2(Y[j]-k.y,X[j]-k.x),k.a)*2.4,-1,1),g=w*(.4+.6*Math.min(1,Math.abs(k.lat)/(RW*.5)));return s*(1-g)+sa*g}
+function wxInit(){WP=Array.from({length:sel.wx==1?140:sel.wx==2?110:0},()=>({x:Math.random(),y:Math.random(),z:.4+Math.random()*.6}))}
+function wxDraw(){const w=sel.wx;
+ if(w==0){const F=Math.min(W*.85,H),hy=H*.36,x=W/2-F*angd(.9,camA),y=hy-H*.2;if(x>-80&&x<W+80){const g=cx.createRadialGradient(x,y,0,x,y,H*.18);g.addColorStop(0,'rgba(255,245,200,.95)');g.addColorStop(.25,'rgba(255,230,150,.5)');g.addColorStop(1,'rgba(255,230,150,0)');cx.fillStyle=g;cx.fillRect(x-H*.2,y-H*.2,H*.4,H*.4)}return}
+ if(w==1){cx.fillStyle='rgba(25,35,60,.18)';cx.fillRect(0,0,W,H);cx.strokeStyle='rgba(200,215,255,.55)';cx.lineWidth=1.2;cx.beginPath();for(const p of WP){p.y+=DT*(1.1+p.z);p.x-=DT*.12;if(p.y>1){p.y=-.05;p.x=Math.random()*1.1}if(p.x<0)p.x+=1;const x=p.x*W,y=p.y*H,l=H*.04*p.z;cx.moveTo(x,y);cx.lineTo(x-l*.12,y+l)}cx.stroke()}
+ else{cx.fillStyle='#fff';cx.beginPath();for(const p of WP){p.y+=DT*(.12+p.z*.18);p.x+=Math.sin(p.y*9+p.z*6)*DT*.05;if(p.y>1){p.y=-.03;p.x=Math.random()}p.x=(p.x+1)%1;const x=p.x*W,y=p.y*H,r=1+p.z*2.2;cx.moveTo(x+r,y);cx.arc(x,y,r,0,7)}cx.fill()}}
+$('#sens').oninput=e=>{sel.sens=e.target.value/100;$('#sv').textContent=e.target.value+' %'};
 function respawn(){if(st!='race'||P.fin)return;const i=P.idx;P.x=X[i];P.y=Y[i];P.a=TA[i];P.v=0;P.lat=0;camA=P.a;offT=0;$('#back').hidden=true}
 $('#back').onpointerdown=e=>{e.preventDefault();respawn()};
 $('#again').onclick=begin;$('#tomenu').onclick=toMenu;$('#quit').onclick=toMenu;
 function toMenu(){st='menu';$('#menu').hidden=false;$('#res').hidden=true;$('#tc').hidden=$('#quit').hidden=$('#back').hidden=true;if(eg)eg.gain.value=0}
 function begin(){
  TT=TH[sel.tr==CUS?0:sel.tr];const ctrl=sel.tr==CUS?custom:Array.from({length:36},(_,i)=>{const t=i/36*2*PI,r=TT.f(t);return[r*Math.cos(t),r*Math.sin(t)]});
- build(ctrl);laps=sel.lp;TOPV=[85,110,135][sel.cc];offT=0;MD=sel.md;setup();inv=$('#inv').checked?-1:1;document.body.classList.toggle('gy',sel.ctl=='gyro');
+ build(ctrl);laps=sel.lp;TOPV=[85,110,135][sel.cc];offT=0;MD=sel.md;setup();wxInit();AIF=[1,.94,.87,.78][sel.la];inv=$('#inv').checked?-1:1;document.body.classList.toggle('gy',sel.ctl=='gyro');
  const oth=CH.map((c,i)=>i).filter(i=>i!=sel.ch).sort(()=>Math.random()-.5);let o=0;karts=[];
- for(let s=0;s<8;s++){const pl=s==5,c=CH[pl?sel.ch:oth[o++]],row=s>>1,ln=s&1?1:-1,i=(N-3-row*2)%N;
+ const NO=sel.no,ps=Math.min(5,NO);for(let s=0;s<=NO;s++){const pl=s==ps,c=CH[pl?sel.ch:oth[o++]],row=s>>1,ln=s&1?1:-1,i=(N-3-row*2)%N;
   karts.push({ch:c,x:X[i]+NX[i]*ln*RW*.2,y:Y[i]+NY[i]*ln*RW*.2,a:TA[i],v:0,idx:i,lap:-1,prog:0,lat:0,fin:0,stt:0,spin:0,boost:0,slow:0,item:'',coins:0,wait:0,sk:.9+Math.random()*.09,sd:Math.random()*9,pl})}
- P=karts[5];camA=P.a;st='cd';cdT=0;bn=0;rt=0;shown=0;neutral=gyroT;
+ P=karts[ps];camA=P.a;st='cd';cdT=0;bn=0;rt=0;shown=0;neutral=gyroT;
  $('#menu').hidden=$('#res').hidden=true;$('#tc').hidden=$('#quit').hidden=false}
 let inv=1;
 
@@ -172,16 +189,16 @@ addEventListener('keydown',e=>keys[e.key.length==1?e.key.toLowerCase():e.key]=1)
 addEventListener('gamepadconnected',e=>$('#pad').textContent='🎮 Controller verbunden: '+e.gamepad.id.slice(0,32));
 function padS(){const l=navigator.getGamepads?navigator.getGamepads():[];for(const g of l)if(g&&g.connected){let s=Math.abs(g.axes[0])>.12?g.axes[0]:0;const bt=i=>g.buttons[i]&&(g.buttons[i].value>.2||g.buttons[i].pressed);if(bt(14))s=-1;if(bt(15))s=1;return{s,g:bt(7)||bt(0),b:bt(6)||bt(1)||bt(2),st:bt(9),y:bt(3),i:bt(5)}}return null}
 function inp(){let s=(B.R||keys.ArrowRight||keys.d?1:0)-(B.L||keys.ArrowLeft||keys.a?1:0),g=B.G||keys.ArrowUp||keys.w,b=B.B||keys.ArrowDown||keys.s;
- if(sel.ctl=='gyro'){let d=gyroT-neutral;if(Math.abs(d)<3)d=0;{const t=clamp(d/40,-1,1);s+=Math.sign(t)*Math.pow(Math.abs(t),1.4)*inv}}
+ if(sel.ctl=='gyro'){let d=gyroT-neutral;if(Math.abs(d)<2)d=0;s+=clamp(d/24*sel.sens,-1,1)*inv}
  const p=padS();if(p){s+=p.s;g=g||p.g;b=b||p.b}return{s:clamp(s,-1,1),g,b}}
 
 /* ---------- Physik ---------- */
 function drive(k,s,g,b,dt,top){if(k.spin>0){k.spin-=dt;s=0;g=0}k.boost-=dt;k.slow-=dt;top*=(k.boost>0?1.35:1)*(k.slow>0?.6:1);if(k.boost>0)k.v+=70*dt;const c=k.ch,off=Math.abs(k.lat)>RW/2+2,lim=off?top*.45:top;
  if(b){k.v-=(k.v>0?170:40)*dt;k.v=Math.max(k.v,-30)}else if(g)k.v+=top*.6*c[4]*dt*Math.max(0,1-k.v/top*.75);else k.v=k.v>0?Math.max(0,k.v-22*dt):Math.min(0,k.v+22*dt);
  if(k.v>lim)k.v=Math.max(lim,k.v-130*dt);
- k.stt=k.spin>0?Math.sin(k.spin*25)*9:s;k.a-=s*2.0*c[5]*clamp(Math.abs(k.v)/50,0,1)*(k.v<0?-1:1)*dt;k.x+=Math.cos(k.a)*k.v*dt;k.y+=Math.sin(k.a)*k.v*dt}
+ k.stt=k.spin>0?Math.sin(k.spin*25)*9:s;k.a-=s*2.3*c[5]*clamp(Math.abs(k.v)/50,0,1)*(k.v<0?-1:1)*dt;k.x+=Math.cos(k.a)*k.v*dt;k.y+=Math.sin(k.a)*k.v*dt}
 function aid(k,dt){const j=(k.idx+6+(k.v/20|0))%N,o=Math.sin(rt*.4+k.sd)*RW*.25,da=angd(Math.atan2(Y[j]+NY[j]*o-k.y,X[j]+NX[j]*o-k.x),k.a);
- const c=Math.max(CV[j],CV[(j+10)%N]),rb=k.pl?1:clamp(1+(P.prog-k.prog)/(N*2.5),.93,1.07),mx=TOPV*k.ch[3]*k.sk*rb,tg=mx*(1-Math.min(.38,c*1.2));
+ const c=Math.max(CV[j],CV[(j+10)%N]),rb=k.pl?1:clamp(1+(P.prog-k.prog)/(N*2.5),.93,1.07),mx=TOPV*k.ch[3]*k.sk*rb*AIF,tg=mx*(1-Math.min(.38,c*1.2));
  drive(k,clamp(-da*2.4,-1,1),k.v<tg,k.v>tg+22,dt,mx)}
 function loc(k){let b=1e12,bi=k.idx;for(let d=-10;d<=10;d++){const i=(k.idx+d+N)%N,dx=k.x-X[i],dy=k.y-Y[i],q=dx*dx+dy*dy;if(q<b){b=q;bi=i}}
  const dd=bi-k.idx;if(dd<-N/2)k.lap++;else if(dd>N/2)k.lap--;k.idx=bi;let dx=k.x-X[bi],dy=k.y-Y[bi];k.lat=dx*NX[bi]+dy*NY[bi];
@@ -191,9 +208,9 @@ const rank=()=>karts.slice().sort((a,b)=>(b.fin?1e9-b.fin:b.prog)-(a.fin?1e9-a.f
 function update(dt){
  if(st=='cd'){cdT+=dt;const n=Math.min(3,Math.floor(cdT/.8));if(n>bn){bn=n;beep(440,.25)}if(cdT>=3.2){st='race';rt=0;beep(900,.6);neutral=gyroT}}else rt+=dt;
  const i=inp(),pd=padS();if((keys.r||(pd&&pd.y))&&offT>.3)respawn();
- for(const k of karts){if(st=='cd')k.v=0;else if(k==P&&!P.fin)drive(k,i.s,i.g,i.b,dt,TOPV*k.ch[3]*(1+Math.min(10,k.coins)*.012));else aid(k,dt);loc(k);if(!k.fin&&k.prog>=laps*N)k.fin=Math.max(rt,.01)}
+ for(const k of karts){if(st=='cd')k.v=0;else if(k==P&&!P.fin)drive(k,assist(k,i.s),i.g,i.b,dt,TOPV*k.ch[3]*(1+Math.min(10,k.coins)*.012));else aid(k,dt);loc(k);if(!k.fin&&k.prog>=laps*N)k.fin=Math.max(rt,.01)}
  offT=(st=='race'&&!P.fin&&Math.abs(P.lat)>RW/2+6)?offT+dt:0;$('#back').hidden=offT<.6;
- for(let a=0;a<8;a++)for(let b=a+1;b<8;b++){const p=karts[a],q=karts[b],dx=p.x-q.x,dy=p.y-q.y,d=Math.hypot(dx,dy);if(d<9&&d>0){const o=(9-d)/2,ux=dx/d,uy=dy/d;p.x+=ux*o;p.y+=uy*o;q.x-=ux*o;q.y-=uy*o;}}
+ const KN=karts.length;for(let a=0;a<KN;a++)for(let b=a+1;b<KN;b++){const p=karts[a],q=karts[b],dx=p.x-q.x,dy=p.y-q.y,d=Math.hypot(dx,dy);if(d<9&&d>0){const o=(9-d)/2,ux=dx/d,uy=dy/d;p.x+=ux*o;p.y+=uy*o;q.x-=ux*o;q.y-=uy*o;}}
  camA+=angd(P.a,camA)*Math.min(1,dt*7);
  if(P.fin&&!shown&&rt-P.fin>1.2){shown=1;const r=rank(),m=Math.floor(P.fin/60),s=(P.fin%60).toFixed(2).padStart(5,'0');$('#rt').textContent=(r.indexOf(P)+1)+'. Platz';$('#rtm').textContent='Zeit '+m+':'+s+(MD==1?' · 🪙 '+P.coins+' Münzen':'')+' · Beste Runde '+ft(bestLap)+recs();
   $('#rl').innerHTML=r.map((k,j)=>`<div class="rw${k==P?' me':''}">${j+1}. ${k.ch[1]} ${k.ch[0]}</div>`).join('');$('#res').hidden=false}
@@ -201,8 +218,8 @@ function update(dt){
  if(P.lap>lastLap){if(P.lap>=1)bestLap=Math.min(bestLap,rt-lapS);lapS=rt;lastLap=P.lap;COIN.forEach(c=>c.on=1)}
  if(MD==1)for(const c of COIN)if(c.on&&Math.hypot(c.x-P.x,c.y-P.y)<7){c.on=0;P.coins++;beep(1300,.07)}
  if(MD==2){
-  for(const b of BX){if(b.t>0){b.t-=dt;continue}for(const k of karts)if(!k.item&&Math.hypot(b.x-k.x,b.y-k.y)<7){k.item=['🍌','🐢','⚡','🍄','🍄','🐢'][Math.random()*6|0];k.wait=2+Math.random()*4;b.t=4;if(k==P)beep(700,.1);break}}
-  for(const h of HZ){h.l-=dt;if(h.t){h.i+=dt*20;const j=Math.floor(h.i)%N;h.x=X[j]+NX[j]*h.lat;h.y=Y[j]+NY[j]*h.lat}for(const k of karts)if(k!=h.o&&Math.hypot(k.x-h.x,k.y-h.y)<6){hit(k);h.l=0;break}}
+  for(const b of BX){if(b.t>0){b.t-=dt;continue}for(const k of karts)if(!k.item&&Math.hypot(b.x-k.x,b.y-k.y)<7){{const L=['🍌','🍌','🐢','🔴','🔴','⚡','🍄','🍄','🍄'];let it;do it=L[Math.random()*L.length|0];while(it==k.last);k.item=it;k.last=it}k.wait=2+Math.random()*4;b.t=4;if(k==P)beep(700,.1);break}}
+  for(const h of HZ){h.l-=dt;if(h.t==2){const dx=h.tg.x-h.x,dy=h.tg.y-h.y,d=Math.hypot(dx,dy)||1;h.x+=dx/d*175*dt;h.y+=dy/d*175*dt}else if(h.t){h.i+=dt*20;const j=Math.floor(h.i)%N;h.x=X[j]+NX[j]*h.lat;h.y=Y[j]+NY[j]*h.lat}for(const k of karts)if(k!=h.o&&Math.hypot(k.x-h.x,k.y-h.y)<6){hit(k);h.l=0;break}}
   HZ=HZ.filter(h=>h.l>0);
   for(const k of karts)if(!k.pl&&k.item){k.wait-=dt;if(k.wait<=0)use(k)}
   if(B.I||keys[' ']||(pd&&pd.i)){if(!itemHeld){use(P);itemHeld=1}}else itemHeld=0;
@@ -257,8 +274,8 @@ function render(){
  ob.sort((a,b)=>b[0]-a[0]);
  for(const o of ob){const p=o[2],s=p[2];if(o[1]>1)deco(o,p,s);else if(o[1]){kart(o[3],p[0],p[1],s)}else{const z=s*o[3];cx.fillStyle='#5a3b22';cx.fillRect(p[0]-1.6*z,p[1]-9*z,3.2*z,9*z);cx.fillStyle=TT.t;cx.beginPath();cx.arc(p[0],p[1]-14*z,7.5*z,0,7);cx.fill()}}
  hud()}
-function hud(){const pd=W>H?30:12,r=rank().indexOf(P)+1;cx.textAlign='left';cx.textBaseline='top';cx.fillStyle='#fff';cx.shadowColor='rgba(0,0,0,.6)';cx.shadowBlur=6;
- const fs=Math.min(H*.08,38);cx.font=`800 ${fs}px -apple-system,sans-serif`;cx.fillText(r+'/8',pd,12);
+function hud(){wxDraw();const pd=W>H?30:12,r=rank().indexOf(P)+1;cx.textAlign='left';cx.textBaseline='top';cx.fillStyle='#fff';cx.shadowColor='rgba(0,0,0,.6)';cx.shadowBlur=6;
+ const fs=Math.min(H*.08,38);cx.font=`800 ${fs}px -apple-system,sans-serif`;cx.fillText(r+'/'+karts.length,pd,12);
  cx.font=`700 ${fs*.5}px -apple-system,sans-serif`;cx.fillText('Runde '+clamp(P.lap+1,1,laps)+'/'+laps,pd,12+fs*1.05);cx.fillText(Math.round(Math.abs(P.v)*1.6)+' km/h',pd,12+fs*1.65);if(MD==1)cx.fillText('🪙 '+P.coins,pd,12+fs*2.25);
  cx.textAlign='center';cx.fillText((rt>0?(rt/60|0)+':'+(rt%60).toFixed(1).padStart(4,'0'):'0:00.0'),W/2,H*.03);
  if(st=='race'&&Math.abs(angd(P.a,TA[P.idx]))>2)cx.fillText('⚠ Falsche Richtung',W/2,H*.2);
@@ -271,7 +288,7 @@ function hud(){const pd=W>H?30:12,r=rank().indexOf(P)+1;cx.textAlign='left';cx.t
 
 /* ---------- Loop ---------- */
 let last=0;
-function loop(t){requestAnimationFrame(loop);const dt=Math.min(.05,(t-last)/1000||0);last=t;
+function loop(t){requestAnimationFrame(loop);const dt=Math.min(.05,(t-last)/1000||0);last=t;DT=dt;
  const p=padS();if(p){if(p.st&&!gpPrev){if(!$('#menu').hidden)$('#go').click();else if(!$('#res').hidden)begin()}gpPrev=p.st}
  if(st!='menu'){update(dt);render()}}
 rs();ui();requestAnimationFrame(loop);
