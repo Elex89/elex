@@ -134,7 +134,8 @@ function audio(){if(AC)return;try{AC=new(window.AudioContext||webkitAudioContext
 function beep(f,d){if(!AC)return;const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;o.connect(g);g.connect(AC.destination);g.gain.setValueAtTime(.15,AC.currentTime);g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.start();o.stop(AC.currentTime+d)}
 
 /* ---------- Start ---------- */
-function gyroH(e){const A=(((screen.orientation&&screen.orientation.angle)||window.orientation||0)%360+360)%360;const t=A==90?e.beta:A==270?-e.beta:A==180?-e.gamma:e.gamma;gyroT=t||0}
+function gyroH(e){if(e.beta==null||e.gamma==null)return;const b=e.beta*PI/180,g=e.gamma*PI/180,ux=-Math.cos(b)*Math.sin(g),uy=Math.sin(b);if(Math.hypot(ux,uy)<.25)return;gyroT=-Math.atan2(ux,uy)*180/PI}
+function gyroOld(e){const A=(((screen.orientation&&screen.orientation.angle)||window.orientation||0)%360+360)%360;const t=A==90?e.beta:A==270?-e.beta:A==180?-e.gamma:e.gamma;gyroT=t||0}
 let gyroOn=0;
 $('#go').onclick=async()=>{audio();
  if(sel.tr==CUS&&!custom){openDraw();return}
@@ -195,7 +196,7 @@ addEventListener('pointerdown',e=>{if(st=='menu'||e.clientX<W/2||e.target.closes
 addEventListener('gamepadconnected',e=>$('#pad').textContent='🎮 Controller verbunden: '+e.gamepad.id.slice(0,32));
 function padS(){const l=navigator.getGamepads?navigator.getGamepads():[];for(const g of l)if(g&&g.connected){let s=Math.abs(g.axes[0])>.12?g.axes[0]:0;const bt=i=>g.buttons[i]&&(g.buttons[i].value>.2||g.buttons[i].pressed);if(bt(14))s=-1;if(bt(15))s=1;return{s,g:bt(7)||bt(0),b:bt(6)||bt(1)||bt(2),st:bt(9),y:bt(3),i:bt(5)}}return null}
 function inp(){let s=(B.R||keys.ArrowRight||keys.d?1:0)-(B.L||keys.ArrowLeft||keys.a?1:0),g=B.G||RT.size>0||keys.ArrowUp||keys.w,b=B.B||keys.ArrowDown||keys.s;
- if(sel.ctl=='gyro'){let d=gyroT-neutral;if(Math.abs(d)<2)d=0;s+=clamp(d/24*sel.sens,-1,1)*inv}
+ if(sel.ctl=='gyro'){let d=gyroT-neutral;d=Math.max(-90,Math.min(90,d>180?d-360:d<-180?d+360:d));if(Math.abs(d)<2)d=0;s+=clamp(d/24*sel.sens,-1,1)*inv}
  const p=padS();if(p){s+=p.s;g=g||p.g;b=b||p.b}return{s:clamp(s,-1,1),g,b}}
 
 /* ---------- Physik ---------- */
