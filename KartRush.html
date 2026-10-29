@@ -107,7 +107,7 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),PI=Math.PI;
 const angd=(a,b)=>{let d=a-b;while(d>PI)d-=2*PI;while(d<-PI)d+=2*PI;return d};
 const RW=40,B={},keys={};
 let W,H,st='menu',karts=[],P,N=0,X,Y,TA,NX,NY,CV,tr=[],MM=[],MB,TT,laps=3,cdT=0,bn=0,rt=0,camA=0,custom=null,neutral=0,gyroT=0,shown=0,pts=[],dr=0,AC,eo,eg,gpPrev=0;
-const CH=[['Kater','🐱','#ff8a3d',1,1,1],['Hasso','🐶','#c98a4b',1.03,.92,.98],['Quaki','🐸','#3fbf5a',.95,1.12,1.05],['Fuchs','🦊','#ff5b2e',1.05,.95,.95],['Panda','🐼','#e8e8ee',.92,1.08,1.12],['Äffchen','🐵','#a9743c',.97,1.05,1.05],['Drache','🐲','#7a4bff',1.07,.88,.92],['Tiger','🐯','#ffc21f',1.01,1,1],['Hannes','👦','#2fa7ff',1.02,1.02,1],['Lena','👧','#ff5fa8',1,1.04,1.04],['Robo','🤖','#9aa7b8',1.04,.96,.97],['Einhorn','🦄','#c07bff',.98,1.06,1.06],['Fiete','👦','#35c47a',1,1.03,1.03]];
+const CH=[['Kater','🐱','#ff8a3d',1,1,1],['Hasso','🐶','#c98a4b',1.03,.92,.98],['Quaki','🐸','#3fbf5a',.95,1.12,1.05],['Fuchs','🦊','#ff5b2e',1.05,.95,.95],['Panda','🐼','#e8e8ee',.92,1.08,1.12],['Äffchen','🐵','#a9743c',.97,1.05,1.05],['Drache','🐲','#7a4bff',1.07,.88,.92],['Tiger','🐯','#ffc21f',1.01,1,1],['Hannes','👦🏼','#2fa7ff',1.02,1.02,1],['Lena','👧','#ff5fa8',1,1.04,1.04],['Robo','🤖','#9aa7b8',1.04,.96,.97],['Einhorn','🦄','#c07bff',.98,1.06,1.06],['Fiete','👦🏽','#35c47a',1,1.03,1.03]];
 const LOOK=[['#ff9a3d','p'],['#b9854a','f','#6b4524'],['#4cc95f','e'],['#ff6a2e','p'],['#f2f2f5','r','#222'],['#a9743c','s'],['#8a5bff','h'],['#ffc21f','r','#ffb000'],['#6b4524','n'],['#ffcf4a','z'],['#cfd6e0','a'],['#ffffff','u'],['#8b5a2b','n']];
 const TH=[
 {n:'🌿 Wiesenring',L:4200,f:t=>1+.16*Math.cos(2*t)+.07*Math.sin(3*t),g:['#3f9b45','#369040'],s:['#4a9dff','#cfeaff'],m:'#5f8f9a',t:'#2f8f3a'},
