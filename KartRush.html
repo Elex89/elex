@@ -7,9 +7,12 @@
 [hidden]{display:none!important}
 html,body{margin:0;height:100%;background:#0b0d14;color:var(--tx);font:600 15px -apple-system,system-ui,sans-serif;overflow:hidden}
 #g{position:fixed;inset:0;width:100%;height:100%}
-#menu,#res,#draw{position:fixed;inset:0;display:flex;justify-content:center;align-items:flex-start;overflow:auto;touch-action:pan-y;background:radial-gradient(120% 90% at 50% 0,#1d2a66,#0b0d14 60%)}
+#menu,#res,#draw,#help{position:fixed;inset:0;display:flex;justify-content:center;align-items:flex-start;overflow:auto;touch-action:pan-y;background:radial-gradient(120% 90% at 50% 0,#1d2a66,#0b0d14 60%)}
 #res{background:rgba(11,13,20,.86);align-items:center}
-#menu *,#res *{touch-action:manipulation}
+#menu *,#res *,#help *{touch-action:manipulation}
+#help{background:rgba(11,13,20,.97);z-index:20}
+#hbtn{position:fixed;top:max(12px,env(safe-area-inset-top));right:max(14px,env(safe-area-inset-right));width:40px;height:40px;border-radius:50%;border:2px solid #3a5bff;background:#171b29;color:#fff;font-weight:800;font-size:20px;font-family:inherit;z-index:5}
+.hl{margin:5px 0;font-weight:500;font-size:14px;line-height:1.4}.hl b{font-weight:800}
 .pn{width:min(560px,100%);padding:max(18px,env(safe-area-inset-top)) 16px max(26px,env(safe-area-inset-bottom))}
 h1{margin:6px 0 2px;font-size:30px;letter-spacing:.12em;font-weight:800}h1 span{color:#6f8bff}
 h2{margin:18px 0 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--mu)}
@@ -42,7 +45,7 @@ h2{margin:18px 0 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercas
 <button id="quit" hidden>✕</button>
 <button id="back" hidden>↩ Zurück zur Strecke</button>
 <div id="tc" hidden><div class="b" id="bL" data-k="L">◀</div><div class="b" id="bR" data-k="R">▶</div><div class="b" id="bB" data-k="B">BREMSE</div><div class="b" id="bG" data-k="G">GAS</div><div class="b" id="bI" data-k="I" hidden>🎁</div></div>
-<div id="menu"><div class="pn">
+<div id="menu"><button id="hbtn">?</button><div class="pn">
 <h1>KART <span>RUSH</span></h1>
 <div class="hint">Tipp: Handy quer halten. Balken: Tempo · Beschleunigung · Lenkung</div>
 <h2>Modus</h2><div id="md" class="row"></div><div class="hint" id="mdh"></div>
@@ -53,7 +56,9 @@ h2{margin:18px 0 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercas
 <h2>Runden</h2><div id="laps" class="row"></div>
 <h2>Motor</h2><div id="cc" class="row"></div>
 <h2>Gegner</h2><div id="no" class="row"></div>
+<h2>Gegnerstärke</h2><div id="df" class="row"></div>
 <h2>Wetter</h2><div id="wx" class="row"></div>
+<h2>Strecken-Extras</h2><div id="ex" class="row"></div><div class="hint">Boost-Felder, Rampen und Sand-Abkürzungen auf der Strecke.</div>
 <h2>Spurhalteassistent</h2><div id="la" class="row"></div><div class="hint">Hilft beim Spurhalten – je stärker, desto schwächer werden die Gegner.</div>
 <h2>Steuerung</h2><div id="ctl" class="row"></div>
 <label class="hint" style="display:block"><input type="checkbox" id="inv"> Gyro-Lenkung invertieren (falls verkehrt herum)</label>
@@ -62,6 +67,38 @@ h2{margin:18px 0 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercas
 <div class="hint" id="pad">🎮 Bluetooth-Controller: einfach verbinden und eine Taste drücken – er wird automatisch erkannt (Stick/Steuerkreuz = lenken, A/RT = Gas, B/LT = Bremse).</div>
 <button class="big" id="go">Rennen starten</button>
 </div></div>
+<div id="help" hidden><div class="pn"><h1>SPIEL<span>HILFE</span></h1>
+<h2>Steuerung</h2>
+<div class="hl"><b>Klassisch:</b> ◀ ▶ lenken. GAS oder ein Tipp irgendwo auf die rechte Bildschirmhälfte gibt Gas, BREMSE bremst.</div>
+<div class="hl"><b>Gyro:</b> Handy wie ein Lenkrad neigen. Die Mitte wird beim grünen Licht eingestellt – halte das Handy dann ruhig. Geht es verkehrt herum, hilft der Haken „Gyro-Lenkung invertieren“.</div>
+<div class="hl"><b>Controller:</b> Stick oder Steuerkreuz lenken, A/RT Gas, B/LT Bremse, RB Item, Y „Zurück zur Strecke“, Start = Rennen starten. <b>Tastatur:</b> Pfeile oder WASD, Leertaste = Item, R = zurück zur Strecke.</div>
+<div class="hl"><b>Abgekommen?</b> Tippe auf „↩ Zurück zur Strecke“, dann setzt dich das Spiel mittig auf die Fahrbahn.</div>
+<h2>Spielmodi</h2>
+<div class="hl"><b>🏁 Rennen:</b> Wer zuerst die gewählten Runden schafft, gewinnt.</div>
+<div class="hl"><b>🪙 Münzen:</b> Sammle Münzen. Jede macht dich etwas schneller (bis +12 %). Sie kommen jede Runde wieder.</div>
+<div class="hl"><b>🎁 Chaos-Cup:</b> Fahre durch die blauen ?-Boxen und nutze das Item mit der Item-Taste.</div>
+<div class="hl"><b>💨 Drift:</b> Lenke in Kurven stark ein – dann rutscht dein Kart und es sprüht Funken. Je länger der Drift, desto mehr Punkte. Beim Loslassen gibt es einen Mini-Turbo: blaue Funken = kurz, orange = lang.</div>
+<div class="hl"><b>🏆 Pokal:</b> 3–4 Strecken hintereinander mit Punkten (10, 8, 6, 5 …) und Siegerehrung.</div>
+<h2>Items</h2>
+<div class="hl">Je weiter hinten du liegst, desto stärker werden deine Items. Der Erste bekommt eher Bananen und Schilde, der Letzte Raketen und Turbos.</div>
+<div class="hl"><b>🍌 Banane:</b> Bleibt hinter dir liegen. Wer drüberfährt, dreht sich.</div>
+<div class="hl"><b>🐢 Grüner Panzer:</b> Fliegt geradeaus auf der Strecke und trifft den ersten Gegner.</div>
+<div class="hl"><b>🔴 Roter Panzer:</b> Verfolgt den nächsten Gegner vor dir, bis er trifft.</div>
+<div class="hl"><b>🚀 Rakete:</b> Schneller als der rote Panzer und sucht den Führenden. Der Erste bekommt sie nicht.</div>
+<div class="hl"><b>💣 Bombe:</b> Bleibt liegen und explodiert nach etwa 2,6 Sekunden. Sie trifft alle im Umkreis – auch dich.</div>
+<div class="hl"><b>⚡ Blitz:</b> Bremst alle Gegner für 3 Sekunden aus (Bildschirm flackert).</div>
+<div class="hl"><b>🛡️ Schild:</b> Blockiert den nächsten Treffer.</div>
+<div class="hl"><b>👻 Geist:</b> 4 Sekunden unverwundbar, dein Kart ist durchsichtig.</div>
+<div class="hl"><b>🍄 Pilz:</b> Kurzer Geschwindigkeitsschub.</div>
+<div class="hl"><b>🥇 Goldener Turbo:</b> Langer Geschwindigkeitsschub – selten.</div>
+<h2>Strecken-Extras</h2>
+<div class="hl"><b>Boost-Felder</b> (gelb-orange, blinkend) geben dir einen kurzen Schub. <b>Rampen</b> (orange Keile) lassen dich springen – in der Luft bremst dich nichts. <b>Sand-Abkürzungen</b> liegen innen in engen Kurven: kürzer, aber du bist dort langsamer. Im Menü kannst du alle Extras ausschalten.</div>
+<h2>Weitere Optionen</h2>
+<div class="hl"><b>Gegner:</b> 0 bis 7, in jedem Modus. <b>Gegnerstärke:</b> Leicht, Mittel oder Stark.</div>
+<div class="hl"><b>Spurhalteassistent:</b> Lenkt dich sanft zur Streckenmitte – ideal für kleine Fahrer. Je stärker, desto schwächer die Gegner. Mit Assistent werden keine Rekorde gespeichert.</div>
+<div class="hl"><b>Wetter:</b> Sonne, Regen oder Schnee – nur Optik, die Fahrphysik bleibt gleich.</div>
+<div class="hl"><b>Rekorde:</b> Bestzeit und beste Runde (bzw. Münzen und Drift-Punkte) werden pro Strecke gespeichert. Eigene Strecken haben keine Rekorde.</div>
+<button class="big" id="hclose">Verstanden</button></div></div>
 <div id="draw" hidden><canvas id="dc"></canvas><div class="bar"><span>Zeichne mit dem Finger eine große Runde (ohne Überkreuzungen).</span><button id="dcan">Abbruch</button><button id="dclr">Neu</button><button id="dok">Fertig</button></div></div>
 <div id="res" hidden><div class="pn"><h1 id="rt"></h1><div class="hint" id="rtm"></div><div id="rl" style="margin-top:12px"></div><button class="big" id="again">Nochmal fahren</button><button class="big alt" id="tomenu">Zum Menü</button></div></div>
 <script>
@@ -81,9 +118,9 @@ const TH=[
 {n:'🏖️ Strandpromenade',L:5600,f:t=>1+.3*Math.cos(2*t)+.08*Math.cos(4*t),g:['#f0d9a0','#e8cf92'],s:['#37b6ff','#d8f4ff'],m:'#7fd0c8',t:'#2fae6a'},
 {n:'🌋 Lava-Canyon',L:6000,f:t=>1+.14*Math.cos(3*t+.4)+.12*Math.cos(2*t)+.06*Math.sin(6*t),g:['#5a1a12','#4c150f'],s:['#2a0a0a','#b3321a'],m:'#3a1410',t:'#ff6a1a'},
 {n:'🏆 Grand Prix',L:7000,f:t=>1+.2*Math.cos(2*t)+.1*Math.cos(3*t+1)+.06*Math.sin(5*t),g:['#3f9b45','#369040'],s:['#4a9dff','#cfeaff'],m:'#5f8f9a',t:'#2f8f3a'}];
-const sel={ch:0,tr:0,lp:3,ctl:'classic',cc:1,md:0,no:7,wx:0,la:0,cu:0,sens:1};
+const sel={ch:0,tr:0,lp:3,ctl:'classic',cc:1,md:0,no:7,wx:0,la:0,cu:0,ex:1,df:0,sens:1};
 const CUS=99;
-let TOPV=110,DT=.016,WP=[],AIF=1,FL=0,CUP=null,PADI=[],RMP=[],SD=[],mN=0,mT=0,MG=null,offT=0,MD=0,COIN=[],BX=[],HZ=[],lastLap=-1,lapS=0,bestLap=1e9,itemHeld=0;
+let TOPV=110,DT=.016,WP=[],AIF=1,AIS=1,SP=[],PS=null,FL=0,CUP=null,PADI=[],RMP=[],SD=[],mN=0,mT=0,MG=null,offT=0,MD=0,COIN=[],BX=[],HZ=[],lastLap=-1,lapS=0,bestLap=1e9,itemHeld=0;
 
 function rs(){const r=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;cv.width=W*r;cv.height=H*r;cx.setTransform(r,0,0,r,0,0);dc.width=W;dc.height=Math.max(100,H-64)}
 addEventListener('resize',rs);
@@ -93,11 +130,13 @@ function ui(){
  $('#chars').innerHTML=CH.map((c,i)=>`<button class="c${sel.ch==i?' on':''}" data-k="ch" data-i="${i}"><em>${c[1]}</em><small>${c[0]}</small>${[c[3],c[4],c[5]].map(v=>`<i style="background:linear-gradient(90deg,#6f8bff ${(v-.86)/.26*100}%,#2a3050 0)"></i>`).join('')}</button>`).join('');
  $('#tracks').innerHTML=TH.map((t,i)=>`<button class="c${sel.tr==i?' on':''}" data-k="tr" data-i="${i}">${t.n}</button>`).join('')+`<button class="c${sel.tr==CUS?' on':''}" data-k="tr" data-i="99">✏️ Eigene${custom?' ✓':''}</button>`;
  $('#laps').innerHTML=[1,2,3,5,8].map(n=>`<button class="c${sel.lp==n?' on':''}" data-k="lp" data-i="${n}">${n}</button>`).join('');
- $('#md').innerHTML=['🏁 Rennen','🪙 Münzen','🎁 Chaos-Cup'].map((a,i)=>`<button class="c${sel.md==i?' on':''}" data-k="md" data-i="${i}">${a}</button>`).join('');
- $('#mdh').textContent=['Klassisches Rennen gegen 7 Gegner.','Sammle Münzen: jede macht dich etwas schneller (bis +12 %). Sie kommen jede Runde wieder.','Items aus Boxen – je weiter hinten, desto stärker (🛡️ 🚀 👻 💣 🥇 u. a.). Zum Beispiel: 🍌 Banane, 🐢 Panzer, ⚡ Blitz, 🍄 Pilz.'][sel.md];
- $('#hs').textContent=sel.tr==CUS?'Eigene Strecken: keine Rekorde.':(()=>{const a=hg('L|'+TH[sel.tr].n+'|'+sel.cc),b=hg(kT());return'🏆 '+(sel.md==1?'Münzen: '+(b==null?'–':b):'Bestzeit: '+(b==null?'–':ft(b)))+' · Beste Runde: '+(a==null?'–':ft(a))})();
+ $('#md').innerHTML=['🏁 Rennen','🪙 Münzen','🎁 Chaos-Cup','💨 Drift'].map((a,i)=>`<button class="c${sel.md==i?' on':''}" data-k="md" data-i="${i}">${a}</button>`).join('');
+ $('#mdh').textContent=['Klassisches Rennen gegen 7 Gegner.','Sammle Münzen: jede macht dich etwas schneller (bis +12 %). Sie kommen jede Runde wieder.','Items aus Boxen – je weiter hinten, desto stärker (🛡️ 🚀 👻 💣 🥇 u. a.). Zum Beispiel: 🍌 Banane, 🐢 Panzer, ⚡ Blitz, 🍄 Pilz.','Driften! Lenke in Kurven stark ein, dann rutscht dein Kart. Je länger der Drift, desto mehr Punkte – und beim Loslassen gibt es einen Mini-Turbo (blau, dann orange).'][sel.md];
+ $('#hs').textContent=sel.tr==CUS?'Eigene Strecken: keine Rekorde.':(()=>{const a=hg('L|'+TH[sel.tr].n+'|'+sel.cc+'|'+sel.ex),b=hg(kT());return'🏆 '+(sel.md==1?'Münzen: '+(b==null?'–':b):sel.md==3?'Drift-Punkte: '+(b==null?'–':b):'Bestzeit: '+(b==null?'–':ft(b)))+' · Beste Runde: '+(a==null?'–':ft(a))})();
  $('#cu').innerHTML=['Aus',...CUPS.map(c=>c.n+' ('+c.t.length+')')].map((a,i)=>`<button class="c${sel.cu==i?' on':''}" data-k="cu" data-i="${i}">${a}</button>`).join('');
  $('#no').innerHTML=[0,1,2,3,4,5,6,7].map(n=>`<button class="c${sel.no==n?' on':''}" data-k="no" data-i="${n}">${n}</button>`).join('');
+ $('#df').innerHTML=['Leicht','Mittel','Stark'].map((a,i)=>`<button class="c${sel.df==i?' on':''}" data-k="df" data-i="${i}">${a}</button>`).join('');
+ $('#ex').innerHTML=['Aus','An'].map((a,i)=>`<button class="c${sel.ex==i?' on':''}" data-k="ex" data-i="${i}">${a}</button>`).join('');
  $('#wx').innerHTML=['☀️ Sonne','🌧️ Regen','❄️ Schnee'].map((a,i)=>`<button class="c${sel.wx==i?' on':''}" data-k="wx" data-i="${i}">${a}</button>`).join('');
  $('#la').innerHTML=['Aus','Leicht','Mittel','Stark'].map((a,i)=>`<button class="c${sel.la==i?' on':''}" data-k="la" data-i="${i}">${a}</button>`).join('');
  $('#cc').innerHTML=['🐢 Eco · 50 ccm','🚗 Sport · 100 ccm','🚀 Turbo · 150 ccm'].map((a,i)=>`<button class="c${sel.cc==i?' on':''}" data-k="cc" data-i="${i}">${a}</button>`).join('');
@@ -147,10 +186,10 @@ $('#go').onclick=async()=>{audio();
 const ft=t=>(t/60|0)+':'+(t%60).toFixed(2).padStart(5,'0');
 function hg(k){try{return JSON.parse(localStorage.getItem('kr')||'{}')[k]}catch(e){}}
 function hs(k,v,f){try{const d=JSON.parse(localStorage.getItem('kr')||'{}');if(d[k]==null||f(v,d[k])){d[k]=v;localStorage.setItem('kr',JSON.stringify(d));return 1}}catch(e){}return 0}
-function kT(){return`T|${sel.md}|${TH[sel.tr].n}|${sel.lp}|${sel.cc}`}
-function recs(){if(sel.tr==CUS||sel.la)return' · (Rekorde nur ohne Spurhalteassistent)';const a=hs('L|'+TH[sel.tr].n+'|'+sel.cc,bestLap,(v,o)=>v<o),b=MD==1?hs(kT(),P.coins,(v,o)=>v>o):hs(kT(),P.fin,(v,o)=>v<o);return(a?' · 🏆 Rundenrekord!':'')+(b?' · 🏆 Streckenrekord!':'')}
+function kT(){return`T|${sel.md}|${TH[sel.tr].n}|${sel.lp}|${sel.cc}|${sel.ex}`}
+function recs(){if(sel.tr==CUS||sel.la)return' · (Rekorde nur ohne Spurhalteassistent)';const a=hs('L|'+TH[sel.tr].n+'|'+sel.cc+'|'+sel.ex,bestLap,(v,o)=>v<o),b=MD==1?hs(kT(),P.coins,(v,o)=>v>o):MD==3?hs(kT(),Math.round(P.ds),(v,o)=>v>o):hs(kT(),P.fin,(v,o)=>v<o);return(a?' · 🏆 Rundenrekord!':'')+(b?' · 🏆 Streckenrekord!':'')}
 function setup(){COIN=[];BX=[];HZ=[];lastLap=-1;lapS=0;bestLap=1e9;PADI=[];RMP=[];SD=[];
- {const g=Math.floor(N/7);for(let i=50;i<N-30;i+=g){const l=((i/g|0)%3-1)*RW*.2;PADI[i]=PADI[i+1]=l}for(let i=30+Math.floor(N/14);i<N-30;i+=Math.floor(N/5)){const l=(((i/7|0)%2)?1:-1)*RW*.12;if(PADI[i]==null&&PADI[i+1]==null)RMP[i]=RMP[i+1]=l}for(let i=0;i<N;i++){const t=angd(TA[(i+8)%N],TA[i]);if(Math.abs(t)>.14)SD[i]=t>0?-1:1}}
+ if(sel.ex){const g=Math.floor(N/7);for(let i=50;i<N-30;i+=g){const l=((i/g|0)%3-1)*RW*.2;PADI[i]=PADI[i+1]=l}for(let i=30+Math.floor(N/14);i<N-30;i+=Math.floor(N/5)){const l=(((i/7|0)%2)?1:-1)*RW*.12;if(PADI[i]==null&&PADI[i+1]==null)RMP[i]=RMP[i+1]=l}for(let i=0;i<N;i++){const t=angd(TA[(i+8)%N],TA[i]);if(Math.abs(t)>.14)SD[i]=t>0?-1:1}}
  if(MD==1)for(let i=0;i<N;i+=5){const l=Math.sin(i*.09)*RW*.28;COIN.push({i,x:X[i]+NX[i]*l,y:Y[i]+NY[i]*l,on:1})}
  if(MD==2)for(let i=40;i<N-20;i+=Math.floor(N/9))for(const l of[-.28,0,.28])BX.push({x:X[i]+NX[i]*l*RW,y:Y[i]+NY[i]*l*RW,t:0});
  $('#bI').hidden=MD!=2}
@@ -173,7 +212,7 @@ function wxDraw(){const w=sel.wx;
  if(w==1){cx.fillStyle='rgba(25,35,60,.18)';cx.fillRect(0,0,W,H);cx.strokeStyle='rgba(200,215,255,.55)';cx.lineWidth=1.2;cx.beginPath();for(const p of WP){p.y+=DT*(1.1+p.z);p.x-=DT*.12;if(p.y>1){p.y=-.05;p.x=Math.random()*1.1}if(p.x<0)p.x+=1;const x=p.x*W,y=p.y*H,l=H*.04*p.z;cx.moveTo(x,y);cx.lineTo(x-l*.12,y+l)}cx.stroke()}
  else{cx.fillStyle='#fff';cx.beginPath();for(const p of WP){p.y+=DT*(.12+p.z*.18);p.x+=Math.sin(p.y*9+p.z*6)*DT*.05;if(p.y>1){p.y=-.03;p.x=Math.random()}p.x=(p.x+1)%1;const x=p.x*W,y=p.y*H,r=1+p.z*2.2;cx.moveTo(x+r,y);cx.arc(x,y,r,0,7)}cx.fill()}}
 
-function flash(){bannerDraw();
+function flash(){bannerDraw();sparks();
  if(FL>0){FL-=DT;const a=Math.min(1,FL*3);cx.fillStyle=`rgba(255,255,255,${(Math.sin(FL*70)>0?.6:.12)*a})`;cx.fillRect(0,0,W,H);cx.font=`${H*.35}px sans-serif`;cx.textAlign='center';cx.textBaseline='middle';cx.globalAlpha=a;cx.fillText('⚡',W/2,H*.4);cx.globalAlpha=1}
  if(st=='race'&&P.boost>0){const g=cx.createRadialGradient(W/2,H/2,H*.25,W/2,H/2,H*.8);g.addColorStop(0,'rgba(255,170,40,0)');g.addColorStop(1,'rgba(255,170,40,.45)');cx.fillStyle=g;cx.fillRect(0,0,W,H);cx.strokeStyle='rgba(255,235,170,.55)';cx.lineWidth=2;cx.beginPath();for(let i=0;i<22;i++){const an=Math.random()*7,r1=H*(.3+Math.random()*.15),r2=r1+H*(.15+Math.random()*.2);cx.moveTo(W/2+Math.cos(an)*r1*1.3,H/2+Math.sin(an)*r1);cx.lineTo(W/2+Math.cos(an)*r2*1.3,H/2+Math.sin(an)*r2)}cx.stroke();cx.font=`${H*.12}px sans-serif`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText('🍄',W/2,H*.16)}}
 const CUPS=[{n:'🌸 Blumen-Pokal',t:[0,1,2]},{n:'☀️ Sonnen-Pokal',t:[4,5,6,7]},{n:'⭐ Stern-Pokal',t:[3,2,6,7]}];
@@ -202,16 +241,25 @@ function cupAfter(r){sfx(r[0]==P?'win':'fin');
  $('#rt').textContent=last?'🏆 Siegerehrung':(r.indexOf(P)+1)+'. Platz · Rennen '+(CUP.i+1)+'/'+CUPS[CUP.c].t.length;
  $('#rl').innerHTML=(last?'<div style="font-size:60px;text-align:center;margin:6px 0;line-height:1.1">'+[1,0,2].map(j=>all[j]?`<span style="display:inline-block;margin:0 10px;vertical-align:bottom">${CH[all[j][0]][1]}<div style="font-size:28px">${['🥇','🥈','🥉'][j]}</div></span>`:'').join('')+'</div>':'')+all.map((a,j)=>`<div class="rw${CH[a[0]]==P.ch?' me':''}">${j+1}. ${CH[a[0]][1]} ${CH[a[0]][0]}<b style="float:right">${a[1]} Pkt</b></div>`).join('');
  $('#again').textContent=last?'Fertig':'Nächstes Rennen ▶'}
-function respawn(){if(st!='race'||P.fin)return;const i=P.idx;P.x=X[i];P.y=Y[i];P.a=TA[i];P.v=0;P.lat=0;camA=P.a;offT=0;$('#back').hidden=true}
+function driftU(k,s,top,dt){const dr=Math.abs(s)>.55&&k.v>top*.5&&!(k.air>0)&&!(k.spin>0);
+ if(dr){if(!k.dd){k.dd=s>0?1:-1;k.dc=0}k.dc+=dt;k.ds+=dt*(k.v/top)*10*(1+Math.min(k.dc,3))}
+ else if(k.dd){if(k.dc>2)k.boost=Math.max(k.boost,1.4);else if(k.dc>.9)k.boost=Math.max(k.boost,.8);if(k.dc>.9)sfx('boost');k.dd=0;k.dc=0}
+ k.va+=angd(k.a,k.va)*Math.min(1,dt*(k.dd?5:14))}
+function sparks(){if(st!='race')return;
+ if(P.dd&&PS){const c=P.dc>2?'#ff9a2e':P.dc>.9?'#58b8ff':'#fff4c0',u=PS[2];for(let i=0;i<4;i++)SP.push({x:PS[0]+(i%2?-1:1)*3.1*u,y:PS[1]-.8*u,vx:(Math.random()-.5)*45*u-P.dd*20*u,vy:-(15+Math.random()*50)*u,g:160*u,l:.3+Math.random()*.3,c})}
+ SP=SP.filter(p=>p.l>0);cx.save();for(const p of SP){p.x+=p.vx*DT;p.y+=p.vy*DT;p.vy+=p.g*DT;p.l-=DT;cx.globalAlpha=Math.min(1,p.l*4);cx.fillStyle=p.c;cx.fillRect(p.x,p.y,3,3)}cx.restore();
+ if(!P.fin){const sr=clamp((Math.abs(P.v)/(TOPV*P.ch[3])-.72)/.4,0,1);if(sr>0){cx.strokeStyle=`rgba(255,255,255,${.28*sr})`;cx.lineWidth=2;cx.beginPath();for(let i=0;i<14;i++){const an=Math.random()*7,r1=H*(.42+Math.random()*.2),r2=r1+H*(.08+.12*sr*Math.random());cx.moveTo(W/2+Math.cos(an)*r1*1.35,H*.5+Math.sin(an)*r1);cx.lineTo(W/2+Math.cos(an)*r2*1.35,H*.5+Math.sin(an)*r2)}cx.stroke()}}}
+$('#hbtn').onclick=()=>{$('#help').hidden=false};$('#hclose').onclick=()=>{$('#help').hidden=true};
+function respawn(){if(st!='race'||P.fin)return;const i=P.idx;P.x=X[i];P.y=Y[i];P.a=P.va=TA[i];P.dd=0;P.v=0;P.lat=0;camA=P.a;offT=0;$('#back').hidden=true}
 $('#back').onpointerdown=e=>{e.preventDefault();respawn()};
 $('#again').onclick=()=>{if(CUP){if(CUP.i>=CUPS[CUP.c].t.length-1){CUP=null;toMenu();return}CUP.i++}begin()};$('#tomenu').onclick=toMenu;$('#quit').onclick=toMenu;
 function toMenu(){CUP=null;st='menu';$('#menu').hidden=false;$('#res').hidden=true;$('#tc').hidden=$('#quit').hidden=$('#back').hidden=true;if(eg)eg.gain.value=0}
 function begin(){
  if(CUP)sel.tr=CUPS[CUP.c].t[CUP.i];TT=TH[sel.tr==CUS?0:sel.tr];const ctrl=sel.tr==CUS?custom:Array.from({length:36},(_,i)=>{const t=i/36*2*PI,r=TT.f(t);return[r*Math.cos(t),r*Math.sin(t)]});
- build(ctrl);laps=sel.lp;TOPV=[85,110,135][sel.cc];offT=0;MD=sel.md;setup();wxInit();AIF=[1,.94,.87,.78][sel.la];inv=$('#inv').checked?-1:1;document.body.classList.toggle('gy',sel.ctl=='gyro');
+ build(ctrl);laps=sel.lp;TOPV=[85,110,135][sel.cc];offT=0;MD=sel.md;setup();wxInit();AIF=[1,.94,.87,.78][sel.la];AIS=[1,1.07,1.15][sel.df];inv=$('#inv').checked?-1:1;document.body.classList.toggle('gy',sel.ctl=='gyro');
  const oth=CUP&&CUP.ro?CUP.ro:CH.map((c,i)=>i).filter(i=>i!=sel.ch).sort(()=>Math.random()-.5);if(CUP)CUP.ro=oth;let o=0;karts=[];
  const NO=sel.no,ps=Math.min(5,NO);for(let s=0;s<=NO;s++){const pl=s==ps,c=CH[pl?sel.ch:oth[o++]],row=s>>1,ln=s&1?1:-1,i=(N-3-row*2)%N;
-  karts.push({ch:c,x:X[i]+NX[i]*ln*RW*.2,y:Y[i]+NY[i]*ln*RW*.2,a:TA[i],v:0,idx:i,lap:-1,prog:0,lat:0,fin:0,stt:0,spin:0,boost:0,slow:0,item:'',coins:0,wait:0,air:0,ac:0,sh:0,gh:0,sk:.9+Math.random()*.09,sd:Math.random()*9,pl})}
+  karts.push({ch:c,x:X[i]+NX[i]*ln*RW*.2,y:Y[i]+NY[i]*ln*RW*.2,a:TA[i],va:TA[i],v:0,idx:i,lap:-1,prog:0,lat:0,fin:0,stt:0,spin:0,boost:0,slow:0,item:'',coins:0,wait:0,air:0,ac:0,sh:0,gh:0,dd:0,dc:0,ds:0,sk:.9+Math.random()*.09,sd:Math.random()*9,pl})}
  P=karts[ps];camA=P.a;st='cd';cdT=0;bn=0;rt=0;shown=0;neutral=gyroT;
  $('#menu').hidden=$('#res').hidden=true;$('#tc').hidden=$('#quit').hidden=false}
 let inv=1;
@@ -233,9 +281,9 @@ function inp(){let s=(B.R||keys.ArrowRight||keys.d?1:0)-(B.L||keys.ArrowLeft||ke
 function drive(k,s,g,b,dt,top){k.air-=dt;k.ac-=dt;k.gh-=dt;if(k.spin>0){k.spin-=dt;s=0;g=0}k.boost-=dt;k.slow-=dt;top*=(k.boost>0?1.35:1)*(k.slow>0?.6:1);if(k.boost>0)k.v+=70*dt;const c=k.ch,off=Math.abs(k.lat)>RW/2+2&&!(k.air>0),lim=off?top*(SD[k.idx]&&SD[k.idx]*k.lat>0?.72:.45):top;
  if(b){k.v-=(k.v>0?170:40)*dt;k.v=Math.max(k.v,-30)}else if(g)k.v+=top*.6*c[4]*dt*Math.max(0,1-k.v/top*.75);else k.v=k.v>0?Math.max(0,k.v-22*dt):Math.min(0,k.v+22*dt);
  if(k.v>lim)k.v=Math.max(lim,k.v-130*dt);
- k.stt=k.spin>0?Math.sin(k.spin*25)*9:s;k.a-=s*2.3*c[5]*clamp(Math.abs(k.v)/50,0,1)*(k.v<0?-1:1)*dt;k.x+=Math.cos(k.a)*k.v*dt;k.y+=Math.sin(k.a)*k.v*dt}
+ if(MD==3&&k.pl)driftU(k,s,top,dt);k.stt=k.spin>0?Math.sin(k.spin*25)*9:s+(k.dd||0)*4;k.a-=s*2.3*c[5]*(k.dd?1.2:1)*clamp(Math.abs(k.v)/50,0,1)*(k.v<0?-1:1)*dt;const ma=MD==3&&k.pl?k.va:k.a;k.x+=Math.cos(ma)*k.v*dt;k.y+=Math.sin(ma)*k.v*dt}
 function aid(k,dt){const j=(k.idx+6+(k.v/20|0))%N,o=Math.sin(rt*.4+k.sd)*RW*.25,da=angd(Math.atan2(Y[j]+NY[j]*o-k.y,X[j]+NX[j]*o-k.x),k.a);
- const c=Math.max(CV[j],CV[(j+10)%N]),rb=k.pl?1:clamp(1+(P.prog-k.prog)/(N*2.5),.93,1.07),mx=TOPV*k.ch[3]*k.sk*rb*AIF,tg=mx*(1-Math.min(.38,c*1.2));
+ const c=Math.max(CV[j],CV[(j+10)%N]),rb=k.pl?1:clamp(1+(P.prog-k.prog)/(N*2.5),.93,1.07),mx=TOPV*k.ch[3]*k.sk*rb*AIF*AIS,tg=mx*(1-Math.min(.38,c*1.2));
  drive(k,clamp(-da*2.4,-1,1),k.v<tg,k.v>tg+22,dt,mx)}
 function loc(k){let b=1e12,bi=k.idx;for(let d=-10;d<=10;d++){const i=(k.idx+d+N)%N,dx=k.x-X[i],dy=k.y-Y[i],q=dx*dx+dy*dy;if(q<b){b=q;bi=i}}
  const dd=bi-k.idx;if(dd<-N/2)k.lap++;else if(dd>N/2)k.lap--;k.idx=bi;let dx=k.x-X[bi],dy=k.y-Y[bi];k.lat=dx*NX[bi]+dy*NY[bi];
@@ -249,7 +297,7 @@ function update(dt){
  offT=(st=='race'&&!P.fin&&Math.abs(P.lat)>RW/2+6)?offT+dt:0;$('#back').hidden=offT<.6;
  const KN=karts.length;for(let a=0;a<KN;a++)for(let b=a+1;b<KN;b++){const p=karts[a],q=karts[b],dx=p.x-q.x,dy=p.y-q.y,d=Math.hypot(dx,dy);if(d<9&&d>0){const o=(9-d)/2,ux=dx/d,uy=dy/d;p.x+=ux*o;p.y+=uy*o;q.x-=ux*o;q.y-=uy*o;}}
  camA+=angd(P.a,camA)*Math.min(1,dt*7);
- if(P.fin&&!shown&&rt-P.fin>1.2){shown=1;const r=rank(),m=Math.floor(P.fin/60),s=(P.fin%60).toFixed(2).padStart(5,'0');$('#rt').textContent=(r.indexOf(P)+1)+'. Platz';$('#rtm').textContent='Zeit '+m+':'+s+(MD==1?' · 🪙 '+P.coins+' Münzen':'')+' · Beste Runde '+ft(bestLap)+recs();
+ if(P.fin&&!shown&&rt-P.fin>1.2){shown=1;const r=rank(),m=Math.floor(P.fin/60),s=(P.fin%60).toFixed(2).padStart(5,'0');$('#rt').textContent=(r.indexOf(P)+1)+'. Platz';$('#rtm').textContent='Zeit '+m+':'+s+(MD==1?' · 🪙 '+P.coins+' Münzen':'')+(MD==3?' · 💨 '+Math.round(P.ds)+' Drift-Punkte':'')+' · Beste Runde '+ft(bestLap)+recs();
   $('#rl').innerHTML=r.map((k,j)=>`<div class="rw${k==P?' me':''}">${j+1}. ${k.ch[1]} ${k.ch[0]}</div>`).join('');cupAfter(r);$('#res').hidden=false}
  if(st=='race'){
  if(P.lap>lastLap){if(P.lap>=1)bestLap=Math.min(bestLap,rt-lapS);lapS=rt;lastLap=P.lap;COIN.forEach(c=>c.on=1);if(P.lap==laps-1&&laps>1)say('Letzte Runde!')}
@@ -315,11 +363,11 @@ function render(){
  const add=(l,t,fn)=>{for(const e of l){if(fn&&!fn(e))continue;const p=Pj(e.x,e.y);if(p[3]>3&&p[3]<520)ob.push([p[3],t,p,e])}};
  add(COIN,2,e=>e.on);add(BX,3,e=>e.t<=0);add(HZ,4);
  ob.sort((a,b)=>b[0]-a[0]);
- for(const o of ob){const p=o[2],s=p[2];if(o[1]>1)deco(o,p,s);else if(o[1]){kart(o[3],p[0],p[1]-(o[3].air>0?Math.sin(clamp(1-o[3].air/.75,0,1)*PI)*9*s:0),s)}else{const z=s*o[3];cx.fillStyle='#5a3b22';cx.fillRect(p[0]-1.6*z,p[1]-9*z,3.2*z,9*z);cx.fillStyle=TT.t;cx.beginPath();cx.arc(p[0],p[1]-14*z,7.5*z,0,7);cx.fill()}}
+ for(const o of ob){const p=o[2],s=p[2];if(o[1]>1)deco(o,p,s);else if(o[1]){if(o[3]==P)PS=[p[0],p[1],s];kart(o[3],p[0],p[1]-(o[3].air>0?Math.sin(clamp(1-o[3].air/.75,0,1)*PI)*9*s:0),s)}else{const z=s*o[3];cx.fillStyle='#5a3b22';cx.fillRect(p[0]-1.6*z,p[1]-9*z,3.2*z,9*z);cx.fillStyle=TT.t;cx.beginPath();cx.arc(p[0],p[1]-14*z,7.5*z,0,7);cx.fill()}}
  hud()}
 function hud(){wxDraw();flash();const pd=W>H?30:12,r=rank().indexOf(P)+1;cx.textAlign='left';cx.textBaseline='top';cx.fillStyle='#fff';cx.shadowColor='rgba(0,0,0,.6)';cx.shadowBlur=6;
  const fs=Math.min(H*.08,38);cx.font=`800 ${fs}px -apple-system,sans-serif`;cx.fillText(r+'/'+karts.length,pd,12);
- cx.font=`700 ${fs*.5}px -apple-system,sans-serif`;cx.fillText('Runde '+clamp(P.lap+1,1,laps)+'/'+laps,pd,12+fs*1.05);cx.fillText(Math.round(Math.abs(P.v)*1.6)+' km/h',pd,12+fs*1.65);if(MD==1)cx.fillText('🪙 '+P.coins,pd,12+fs*2.25);
+ cx.font=`700 ${fs*.5}px -apple-system,sans-serif`;cx.fillText('Runde '+clamp(P.lap+1,1,laps)+'/'+laps,pd,12+fs*1.05);cx.fillText(Math.round(Math.abs(P.v)*1.6)+' km/h',pd,12+fs*1.65);if(MD==1)cx.fillText('🪙 '+P.coins,pd,12+fs*2.7);if(MD==3)cx.fillText('💨 '+Math.round(P.ds),pd,12+fs*2.7);{const mv=TOPV*P.ch[3]*1.4,r=clamp(Math.abs(P.v)/mv,0,1);cx.fillStyle='rgba(0,0,0,.45)';cx.fillRect(pd,12+fs*2.2,92,6);cx.fillStyle=P.boost>0?'#5ab4ff':r>.8?'#ff9a2e':'#5be07a';cx.fillRect(pd,12+fs*2.2,92*r,6)}
  cx.textAlign='center';cx.fillText((rt>0?(rt/60|0)+':'+(rt%60).toFixed(1).padStart(4,'0'):'0:00.0'),W/2,H*.03);
  if(st=='race'&&Math.abs(angd(P.a,TA[P.idx]))>2)cx.fillText('⚠ Falsche Richtung',W/2,H*.2);
  cx.shadowBlur=0;
